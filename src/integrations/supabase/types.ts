@@ -14,16 +14,321 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      checklist_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_categories_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_items: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          name: string
+          required: boolean
+          sort_order: number
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          name: string
+          required?: boolean
+          sort_order?: number
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          required?: boolean
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_responses: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          id: string
+          item_id: string
+          observation: string | null
+          photo_url: string | null
+          status: Database["public"]["Enums"]["response_status"]
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+          observation?: string | null
+          photo_url?: string | null
+          status: Database["public"]["Enums"]["response_status"]
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          observation?: string | null
+          photo_url?: string | null
+          status?: Database["public"]["Enums"]["response_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_responses_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_responses_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
+        }
+        Relationships: []
+      }
+      checklists: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          damage_description: string | null
+          driver_id: string
+          exit_time: string | null
+          has_issues: boolean
+          id: string
+          itinerary: string | null
+          observations: string | null
+          odometer_end: number | null
+          odometer_start: number | null
+          signature_url: string | null
+          status: Database["public"]["Enums"]["checklist_status"]
+          template_id: string
+          vehicle_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          damage_description?: string | null
+          driver_id: string
+          exit_time?: string | null
+          has_issues?: boolean
+          id?: string
+          itinerary?: string | null
+          observations?: string | null
+          odometer_end?: number | null
+          odometer_start?: number | null
+          signature_url?: string | null
+          status?: Database["public"]["Enums"]["checklist_status"]
+          template_id: string
+          vehicle_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          damage_description?: string | null
+          driver_id?: string
+          exit_time?: string | null
+          has_issues?: boolean
+          id?: string
+          itinerary?: string | null
+          observations?: string | null
+          odometer_end?: number | null
+          odometer_start?: number | null
+          signature_url?: string | null
+          status?: Database["public"]["Enums"]["checklist_status"]
+          template_id?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklists_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          cnh: string | null
+          company: string | null
+          cpf: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cnh?: string | null
+          company?: string | null
+          cpf?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cnh?: string | null
+          company?: string | null
+          cpf?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vehicles: {
+        Row: {
+          active: boolean
+          base: string | null
+          created_at: string
+          id: string
+          model: string | null
+          plate: string
+          sector: string | null
+          updated_at: string
+          vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+        }
+        Insert: {
+          active?: boolean
+          base?: string | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          plate: string
+          sector?: string | null
+          updated_at?: string
+          vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+        }
+        Update: {
+          active?: boolean
+          base?: string | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          plate?: string
+          sector?: string | null
+          updated_at?: string
+          vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "driver"
+      checklist_status: "in_progress" | "completed"
+      response_status: "OK" | "NAO_OK" | "NA"
+      vehicle_type:
+        | "PESADOS"
+        | "OPERACIONAIS"
+        | "CESTO_AEREO"
+        | "ADMINISTRATIVO"
+        | "MUNCK"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +455,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "driver"],
+      checklist_status: ["in_progress", "completed"],
+      response_status: ["OK", "NAO_OK", "NA"],
+      vehicle_type: [
+        "PESADOS",
+        "OPERACIONAIS",
+        "CESTO_AEREO",
+        "ADMINISTRATIVO",
+        "MUNCK",
+      ],
+    },
   },
 } as const
