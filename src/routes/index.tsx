@@ -9,6 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon } from "lucide-react";
+import { FileDown, FileSpreadsheet, Filter } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -132,24 +136,53 @@ function AppShell({ onSignOut }: { onSignOut: () => void }) {
               {isAdmin ? "Nenhum veículo cadastrado. Adicione o primeiro." : "Nenhum veículo cadastrado. Peça ao administrador."}
             </Card>
           )}
-          <div className="grid gap-2">
-            {vehicles.map((v) => (
-              <button key={v.id} onClick={() => setActiveChecklist(v.id)}
-                className="text-left p-4 rounded-xl bg-card border border-border hover:border-primary transition flex items-center justify-between">
-                <div>
-                  <div className="font-bold tracking-wide">{v.plate}</div>
-                  <div className="text-xs text-muted-foreground">{v.model || "—"} • {v.vehicle_type.replace("_", " ")}{v.base ? ` • ${v.base}` : ""}</div>
-                </div>
-                <div className="text-primary text-sm font-semibold">Iniciar →</div>
-              </button>
-            ))}
-          </div>
+          <VehicleListByCategory vehicles={vehicles} onSelect={setActiveChecklist} />
         </section>
 
         {isAdmin && <AdminPanel onChange={load} />}
       </main>
 
       {showAddVehicle && <AddVehicleModal onClose={() => { setShowAddVehicle(false); load(); }} />}
+    </div>
+  );
+}
+
+const VEHICLE_TYPE_LABELS: Record<string, string> = {
+  PESADOS: "Pesados",
+  OPERACIONAIS: "Operacionais",
+  CESTO_AEREO: "Cesto Aéreo",
+  ADMINISTRATIVO: "Administrativo",
+  MUNCK: "Munck",
+};
+
+function VehicleListByCategory({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect: (id: string) => void }) {
+  const grouped = vehicles.reduce<Record<string, Vehicle[]>>((acc, v) => {
+    (acc[v.vehicle_type] ||= []).push(v);
+    return acc;
+  }, {});
+  const order = ["PESADOS", "OPERACIONAIS", "CESTO_AEREO", "ADMINISTRATIVO", "MUNCK"];
+  return (
+    <div className="space-y-5">
+      {order.filter((t) => grouped[t]?.length).map((type) => (
+        <div key={type} className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{VEHICLE_TYPE_LABELS[type] ?? type}</h3>
+            <span className="text-xs text-muted-foreground">({grouped[type].length})</span>
+          </div>
+          <div className="grid gap-2">
+            {grouped[type].map((v) => (
+              <button key={v.id} onClick={() => onSelect(v.id)}
+                className="text-left p-4 rounded-xl bg-card border border-border hover:border-primary transition flex items-center justify-between">
+                <div>
+                  <div className="font-bold tracking-wide">{v.plate}</div>
+                  <div className="text-xs text-muted-foreground">{v.model || "—"}{v.base ? ` • ${v.base}` : ""}</div>
+                </div>
+                <div className="text-primary text-sm font-semibold">Iniciar →</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -195,52 +228,245 @@ function AddVehicleModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+type HistoryRow = {
+  id: string;
+  created_at: string;
+  has_issues: boolean;
+  itinerary: string | null;
+  odometer_start: number | null;
+  status: string;
+  vehicles: { plate: string; model: string | null; vehicle_type: string; base: string | null } | null;
+  profiles: { full_name: string | null; cpf: string | null } | null;
+};
+
 function AdminPanel({ onChange: _ }: { onChange: () => void }) {
-  const [stats, setStats] = useState({ total: 0, issues: 0, today: 0 });
-  const [recent, setRecent] = useState<Array<{ id: string; created_at: string; has_issues: boolean; vehicles: { plate: string } | null }>>([]);
+  const [all, setAll] = useState<HistoryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [plate, setPlate] = useState("");
+  const [type, setType] = useState("");
+  const [issues, setIssues] = useState<"all" | "yes" | "no">("all");
+  const [detail, setDetail] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       const { data } = await supabase.from("checklists")
-        .select("id, created_at, has_issues, vehicles(plate)")
-        .order("created_at", { ascending: false }).limit(20);
-      const list = (data ?? []) as never as typeof recent;
-      setRecent(list);
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      setStats({
-        total: list.length,
-        issues: list.filter((c) => c.has_issues).length,
-        today: list.filter((c) => new Date(c.created_at) >= today).length,
-      });
+        .select("id, driver_id, created_at, has_issues, itinerary, odometer_start, status, vehicles(plate, model, vehicle_type, base)")
+        .order("created_at", { ascending: false }).limit(1000);
+      const list = (data ?? []) as never as Array<HistoryRow & { driver_id: string }>;
+      const ids = Array.from(new Set(list.map((c) => c.driver_id).filter(Boolean)));
+      let profileMap: Record<string, { full_name: string | null; cpf: string | null }> = {};
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, full_name, cpf").in("id", ids);
+        profileMap = Object.fromEntries((profs ?? []).map((p) => [p.id, { full_name: p.full_name, cpf: p.cpf }]));
+      }
+      setAll(list.map((c) => ({ ...c, profiles: profileMap[c.driver_id] ?? null })));
+      setLoading(false);
     })();
   }, []);
 
+  const filtered = all.filter((c) => {
+    if (from && new Date(c.created_at) < new Date(from)) return false;
+    if (to) { const t = new Date(to); t.setDate(t.getDate() + 1); if (new Date(c.created_at) >= t) return false; }
+    if (plate && !(c.vehicles?.plate ?? "").toLowerCase().includes(plate.toLowerCase())) return false;
+    if (type && c.vehicles?.vehicle_type !== type) return false;
+    if (issues === "yes" && !c.has_issues) return false;
+    if (issues === "no" && c.has_issues) return false;
+    return true;
+  });
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const stats = {
+    total: filtered.length,
+    issues: filtered.filter((c) => c.has_issues).length,
+    today: filtered.filter((c) => new Date(c.created_at) >= today).length,
+  };
+
+  const rows = () => filtered.map((c) => ({
+    Data: new Date(c.created_at).toLocaleString("pt-BR"),
+    Placa: c.vehicles?.plate ?? "",
+    Modelo: c.vehicles?.model ?? "",
+    Tipo: VEHICLE_TYPE_LABELS[c.vehicles?.vehicle_type ?? ""] ?? c.vehicles?.vehicle_type ?? "",
+    Base: c.vehicles?.base ?? "",
+    Motorista: c.profiles?.full_name ?? "",
+    CPF: c.profiles?.cpf ?? "",
+    Itinerário: c.itinerary ?? "",
+    Odômetro: c.odometer_start ?? "",
+    Status: c.has_issues ? "Com falhas" : "OK",
+  }));
+
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(rows());
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Checklists");
+    XLSX.writeFile(wb, `checklists_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text("Relatório de Checklists", 14, 14);
+    doc.setFontSize(9);
+    doc.text(`Total: ${stats.total} • Com falhas: ${stats.issues} • Hoje: ${stats.today}`, 14, 20);
+    const data = rows();
+    autoTable(doc, {
+      startY: 25,
+      head: [Object.keys(data[0] ?? { Data: "", Placa: "", Tipo: "", Motorista: "", Status: "" })],
+      body: data.map((r) => Object.values(r).map((v) => String(v))),
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [30, 30, 30] },
+    });
+    doc.save(`checklists_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold">Painel admin</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold">Painel admin</h2>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={exportExcel} disabled={!filtered.length}><FileSpreadsheet className="size-4" />Excel</Button>
+          <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length}><FileDown className="size-4" />PDF</Button>
+        </div>
+      </div>
       <div className="grid grid-cols-3 gap-2">
         <Card className="p-3"><div className="text-xs text-muted-foreground">Hoje</div><div className="text-2xl font-bold">{stats.today}</div></Card>
-        <Card className="p-3"><div className="text-xs text-muted-foreground">Recentes</div><div className="text-2xl font-bold">{stats.total}</div></Card>
+        <Card className="p-3"><div className="text-xs text-muted-foreground">Filtrados</div><div className="text-2xl font-bold">{stats.total}</div></Card>
         <Card className="p-3"><div className="text-xs text-muted-foreground">Com falhas</div><div className="text-2xl font-bold text-destructive">{stats.issues}</div></Card>
       </div>
+
+      <Card className="p-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-semibold"><Filter className="size-4" />Filtros</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div><Label className="text-xs">De</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+          <div><Label className="text-xs">Até</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          <div><Label className="text-xs">Placa</Label><Input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="ABC..." /></div>
+          <div><Label className="text-xs">Tipo</Label>
+            <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="">Todos</option>
+              {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div><Label className="text-xs">Falhas</Label>
+            <select value={issues} onChange={(e) => setIssues(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="all">Todas</option>
+              <option value="yes">Apenas com falhas</option>
+              <option value="no">Apenas OK</option>
+            </select>
+          </div>
+          <div className="flex items-end"><Button variant="ghost" className="w-full" onClick={() => { setFrom(""); setTo(""); setPlate(""); setType(""); setIssues("all"); }}>Limpar</Button></div>
+        </div>
+      </Card>
+
       <Card className="p-3">
-        <div className="font-semibold text-sm mb-2">Últimos checklists</div>
-        {recent.length === 0 && <div className="text-xs text-muted-foreground">Nenhum ainda.</div>}
-        <div className="divide-y divide-border">
-          {recent.map((c) => (
-            <div key={c.id} className="py-2 flex items-center justify-between text-sm">
-              <div>
-                <div className="font-bold">{c.vehicles?.plate ?? "—"}</div>
-                <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString("pt-BR")}</div>
+        <div className="font-semibold text-sm mb-2">Histórico ({filtered.length})</div>
+        {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
+        {!loading && filtered.length === 0 && <div className="text-xs text-muted-foreground">Nenhum checklist no filtro.</div>}
+        <div className="divide-y divide-border max-h-[500px] overflow-auto">
+          {filtered.map((c) => (
+            <button key={c.id} onClick={() => setDetail(c.id)} className="w-full text-left py-2 flex items-center justify-between text-sm hover:bg-muted/30 px-1 rounded">
+              <div className="min-w-0">
+                <div className="font-bold">{c.vehicles?.plate ?? "—"} <span className="text-xs text-muted-foreground font-normal">• {c.profiles?.full_name ?? "—"}</span></div>
+                <div className="text-xs text-muted-foreground truncate">{new Date(c.created_at).toLocaleString("pt-BR")}{c.itinerary ? ` • ${c.itinerary}` : ""}</div>
               </div>
               {c.has_issues
-                ? <span className="text-destructive flex items-center gap-1 text-xs"><AlertTriangle className="size-4" />Com falhas</span>
-                : <span className="text-[color:var(--success)] flex items-center gap-1 text-xs"><CheckCircle2 className="size-4" />OK</span>}
-            </div>
+                ? <span className="text-destructive flex items-center gap-1 text-xs shrink-0"><AlertTriangle className="size-4" />Com falhas</span>
+                : <span className="text-[color:var(--success)] flex items-center gap-1 text-xs shrink-0"><CheckCircle2 className="size-4" />OK</span>}
+            </button>
           ))}
         </div>
       </Card>
+
+      {detail && <ChecklistDetailModal id={detail} onClose={() => setDetail(null)} />}
     </section>
+  );
+}
+
+function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const [data, setData] = useState<{ checklist: HistoryRow | null; responses: Array<{ status: string; observation: string | null; checklist_items: { name: string; checklist_categories: { name: string } | null } | null }> }>({ checklist: null, responses: [] });
+
+  useEffect(() => {
+    (async () => {
+      const { data: ck } = await supabase.from("checklists")
+        .select("id, driver_id, created_at, has_issues, itinerary, odometer_start, status, vehicles(plate, model, vehicle_type, base)")
+        .eq("id", id).single();
+      let profile: { full_name: string | null; cpf: string | null } | null = null;
+      if (ck?.driver_id) {
+        const { data: p } = await supabase.from("profiles").select("full_name, cpf").eq("id", ck.driver_id).maybeSingle();
+        profile = p;
+      }
+      const { data: resp } = await supabase.from("checklist_responses")
+        .select("status, observation, checklist_items(name, checklist_categories(name))")
+        .eq("checklist_id", id);
+      const merged = ck ? ({ ...(ck as object), profiles: profile } as unknown as HistoryRow) : null;
+      setData({ checklist: merged, responses: (resp ?? []) as never });
+    })();
+  }, [id]);
+
+  const exportPdf = () => {
+    if (!data.checklist) return;
+    const c = data.checklist;
+    const doc = new jsPDF();
+    doc.setFontSize(14); doc.text("Checklist", 14, 14);
+    doc.setFontSize(10);
+    const info = [
+      `Placa: ${c.vehicles?.plate ?? ""} (${c.vehicles?.model ?? ""})`,
+      `Tipo: ${VEHICLE_TYPE_LABELS[c.vehicles?.vehicle_type ?? ""] ?? ""}`,
+      `Motorista: ${c.profiles?.full_name ?? ""}`,
+      `Data: ${new Date(c.created_at).toLocaleString("pt-BR")}`,
+      `Itinerário: ${c.itinerary ?? "—"}`,
+      `Odômetro: ${c.odometer_start ?? "—"}`,
+      `Status: ${c.has_issues ? "Com falhas" : "OK"}`,
+    ];
+    info.forEach((t, i) => doc.text(t, 14, 22 + i * 6));
+    autoTable(doc, {
+      startY: 22 + info.length * 6 + 4,
+      head: [["Categoria", "Item", "Status", "Observação"]],
+      body: data.responses.map((r) => [
+        r.checklist_items?.checklist_categories?.name ?? "",
+        r.checklist_items?.name ?? "",
+        r.status,
+        r.observation ?? "",
+      ]),
+      styles: { fontSize: 8 },
+    });
+    doc.save(`checklist_${c.vehicles?.plate ?? id}_${new Date(c.created_at).toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const c = data.checklist;
+  return (
+    <div className="fixed inset-0 z-20 bg-background/80 backdrop-blur grid place-items-center p-4">
+      <Card className="w-full max-w-2xl p-5 space-y-3 max-h-[90vh] overflow-auto">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-lg">Detalhes do checklist</h3>
+          <Button size="sm" variant="outline" onClick={exportPdf} disabled={!c}><FileDown className="size-4" />PDF</Button>
+        </div>
+        {!c ? <div className="text-sm text-muted-foreground">Carregando…</div> : (
+          <>
+            <div className="text-sm space-y-1">
+              <div><b>Placa:</b> {c.vehicles?.plate} ({c.vehicles?.model || "—"})</div>
+              <div><b>Motorista:</b> {c.profiles?.full_name ?? "—"}</div>
+              <div><b>Data:</b> {new Date(c.created_at).toLocaleString("pt-BR")}</div>
+              <div><b>Itinerário:</b> {c.itinerary ?? "—"} • <b>Odômetro:</b> {c.odometer_start ?? "—"}</div>
+              <div><b>Status:</b> {c.has_issues ? <span className="text-destructive">Com falhas</span> : <span className="text-[color:var(--success)]">OK</span>}</div>
+            </div>
+            <div className="border border-border rounded-md divide-y divide-border text-sm">
+              {data.responses.map((r, i) => (
+                <div key={i} className="p-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">{r.checklist_items?.name}</div>
+                    <div className="text-xs text-muted-foreground">{r.checklist_items?.checklist_categories?.name}{r.observation ? ` • ${r.observation}` : ""}</div>
+                  </div>
+                  <span className={`text-xs font-bold shrink-0 ${r.status === "NAO_OK" ? "text-destructive" : r.status === "OK" ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>{r.status}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <Button variant="ghost" className="w-full" onClick={onClose}>Fechar</Button>
+      </Card>
+    </div>
   );
 }
 
