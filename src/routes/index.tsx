@@ -399,7 +399,8 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
       const { data: resp } = await supabase.from("checklist_responses")
         .select("status, observation, checklist_items(name, checklist_categories(name))")
         .eq("checklist_id", id);
-      setData({ checklist: ck ? { ...(ck as never), profiles: profile } as never : null, responses: (resp ?? []) as never });
+      const merged = ck ? ({ ...(ck as object), profiles: profile } as unknown as HistoryRow) : null;
+      setData({ checklist: merged, responses: (resp ?? []) as never });
     })();
   }, [id]);
 
