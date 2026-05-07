@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle } from "lucide-react";
+import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -22,10 +22,12 @@ function Index() {
 }
 
 function AuthScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInEmail } = useAuth();
+  const [tab, setTab] = useState<"driver" | "admin">("driver");
   const [mode, setMode] = useState<"in" | "up">("in");
   const [cpf, setCpf] = useState("");
   const [cnh, setCnh] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,11 @@ function AuthScreen() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const r = mode === "in" ? await signIn(cpf, password) : await signUp(name, cpf, cnh, password);
+    const r = tab === "admin"
+      ? await signInEmail(email, password)
+      : mode === "in"
+        ? await signIn(cpf, password)
+        : await signUp(name, cpf, cnh, password);
     setBusy(false);
     if (r.error) toast.error(r.error);
     else if (mode === "up") toast.success("Conta criada! Você já pode entrar.");
@@ -49,22 +55,36 @@ function AuthScreen() {
             <p className="text-xs text-muted-foreground">Inspeção veicular digital</p>
           </div>
         </div>
+        <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg">
+          <button type="button" onClick={() => setTab("driver")}
+            className={`h-9 rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 transition ${tab === "driver" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
+            <UserIcon className="size-4" />Motorista
+          </button>
+          <button type="button" onClick={() => setTab("admin")}
+            className={`h-9 rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 transition ${tab === "admin" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
+            <ShieldCheck className="size-4" />Administrador
+          </button>
+        </div>
         <form onSubmit={submit} className="space-y-3">
-          {mode === "up" && (
+          {tab === "driver" && mode === "up" && (
             <>
               <div><Label>Nome completo</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
               <div><Label>CNH (nº de registro)</Label><Input value={cnh} onChange={(e) => setCnh(e.target.value)} required /></div>
             </>
           )}
-          <div><Label>CPF</Label><Input value={cpf} onChange={(e) => setCpf(e.target.value)} required placeholder="000.000.000-00" /></div>
+          {tab === "driver"
+            ? <div><Label>CPF</Label><Input value={cpf} onChange={(e) => setCpf(e.target.value)} required placeholder="000.000.000-00" /></div>
+            : <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="admin@empresa.com" /></div>}
           <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} /></div>
           <Button type="submit" className="w-full h-11 text-base" disabled={busy}>
-            {busy ? "..." : mode === "in" ? "Entrar" : "Criar conta"}
+            {busy ? "..." : tab === "admin" ? "Entrar como admin" : mode === "in" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
-        <button onClick={() => setMode(mode === "in" ? "up" : "in")} className="text-sm text-primary w-full">
-          {mode === "in" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
-        </button>
+        {tab === "driver" && (
+          <button onClick={() => setMode(mode === "in" ? "up" : "in")} className="text-sm text-primary w-full">
+            {mode === "in" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
+          </button>
+        )}
       </Card>
     </div>
   );
