@@ -253,9 +253,16 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
     (async () => {
       setLoading(true);
       const { data } = await supabase.from("checklists")
-        .select("id, created_at, has_issues, itinerary, odometer_start, status, vehicles(plate, model, vehicle_type, base), profiles!checklists_driver_id_fkey(full_name, cpf)")
+        .select("id, driver_id, created_at, has_issues, itinerary, odometer_start, status, vehicles(plate, model, vehicle_type, base)")
         .order("created_at", { ascending: false }).limit(1000);
-      setAll((data ?? []) as never);
+      const list = (data ?? []) as never as Array<HistoryRow & { driver_id: string }>;
+      const ids = Array.from(new Set(list.map((c) => c.driver_id).filter(Boolean)));
+      let profileMap: Record<string, { full_name: string | null; cpf: string | null }> = {};
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, full_name, cpf").in("id", ids);
+        profileMap = Object.fromEntries((profs ?? []).map((p) => [p.id, { full_name: p.full_name, cpf: p.cpf }]));
+      }
+      setAll(list.map((c) => ({ ...c, profiles: profileMap[c.driver_id] ?? null })));
       setLoading(false);
     })();
   }, []);
@@ -382,12 +389,17 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
   useEffect(() => {
     (async () => {
       const { data: ck } = await supabase.from("checklists")
-        .select("id, created_at, has_issues, itinerary, odometer_start, status, vehicles(plate, model, vehicle_type, base), profiles!checklists_driver_id_fkey(full_name, cpf)")
+        .select("id, driver_id, created_at, has_issues, itinerary, odometer_start, status, vehicles(plate, model, vehicle_type, base)")
         .eq("id", id).single();
+      let profile: { full_name: string | null; cpf: string | null } | null = null;
+      if (ck?.driver_id) {
+        const { data: p } = await supabase.from("profiles").select("full_name, cpf").eq("id", ck.driver_id).maybeSingle();
+        profile = p;
+      }
       const { data: resp } = await supabase.from("checklist_responses")
         .select("status, observation, checklist_items(name, checklist_categories(name))")
         .eq("checklist_id", id);
-      setData({ checklist: ck as never, responses: (resp ?? []) as never });
+      setData({ checklist: ck ? { ...(ck as never), profiles: profile } as never : null, responses: (resp ?? []) as never });
     })();
   }, [id]);
 
