@@ -136,24 +136,53 @@ function AppShell({ onSignOut }: { onSignOut: () => void }) {
               {isAdmin ? "Nenhum veículo cadastrado. Adicione o primeiro." : "Nenhum veículo cadastrado. Peça ao administrador."}
             </Card>
           )}
-          <div className="grid gap-2">
-            {vehicles.map((v) => (
-              <button key={v.id} onClick={() => setActiveChecklist(v.id)}
-                className="text-left p-4 rounded-xl bg-card border border-border hover:border-primary transition flex items-center justify-between">
-                <div>
-                  <div className="font-bold tracking-wide">{v.plate}</div>
-                  <div className="text-xs text-muted-foreground">{v.model || "—"} • {v.vehicle_type.replace("_", " ")}{v.base ? ` • ${v.base}` : ""}</div>
-                </div>
-                <div className="text-primary text-sm font-semibold">Iniciar →</div>
-              </button>
-            ))}
-          </div>
+          <VehicleListByCategory vehicles={vehicles} onSelect={setActiveChecklist} />
         </section>
 
         {isAdmin && <AdminPanel onChange={load} />}
       </main>
 
       {showAddVehicle && <AddVehicleModal onClose={() => { setShowAddVehicle(false); load(); }} />}
+    </div>
+  );
+}
+
+const VEHICLE_TYPE_LABELS: Record<string, string> = {
+  PESADOS: "Pesados",
+  OPERACIONAIS: "Operacionais",
+  CESTO_AEREO: "Cesto Aéreo",
+  ADMINISTRATIVO: "Administrativo",
+  MUNCK: "Munck",
+};
+
+function VehicleListByCategory({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect: (id: string) => void }) {
+  const grouped = vehicles.reduce<Record<string, Vehicle[]>>((acc, v) => {
+    (acc[v.vehicle_type] ||= []).push(v);
+    return acc;
+  }, {});
+  const order = ["PESADOS", "OPERACIONAIS", "CESTO_AEREO", "ADMINISTRATIVO", "MUNCK"];
+  return (
+    <div className="space-y-5">
+      {order.filter((t) => grouped[t]?.length).map((type) => (
+        <div key={type} className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{VEHICLE_TYPE_LABELS[type] ?? type}</h3>
+            <span className="text-xs text-muted-foreground">({grouped[type].length})</span>
+          </div>
+          <div className="grid gap-2">
+            {grouped[type].map((v) => (
+              <button key={v.id} onClick={() => onSelect(v.id)}
+                className="text-left p-4 rounded-xl bg-card border border-border hover:border-primary transition flex items-center justify-between">
+                <div>
+                  <div className="font-bold tracking-wide">{v.plate}</div>
+                  <div className="text-xs text-muted-foreground">{v.model || "—"}{v.base ? ` • ${v.base}` : ""}</div>
+                </div>
+                <div className="text-primary text-sm font-semibold">Iniciar →</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
