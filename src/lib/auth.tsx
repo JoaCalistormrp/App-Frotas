@@ -7,8 +7,8 @@ type AuthCtx = {
   session: Session | null;
   isAdmin: boolean;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error?: string }>;
+  signIn: (cpf: string, password: string) => Promise<{ error?: string }>;
+  signUp: (fullName: string, cpf: string, cnh: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 };
 
@@ -45,16 +45,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const cpfToEmail = (cpf: string) => `${cpf.replace(/\D/g, "")}@frota.local`;
+  const signIn = async (cpf: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email: cpfToEmail(cpf), password });
     return { error: error?.message };
   };
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/` },
+  const signUp = async (fullName: string, cpf: string, cnh: string, password: string) => {
+    const cleanCpf = cpf.replace(/\D/g, "");
+    const cleanCnh = cnh.replace(/\D/g, "");
+    const { data, error } = await supabase.auth.signUp({
+      email: cpfToEmail(cleanCpf), password,
+      options: { data: { full_name: fullName, cpf: cleanCpf, cnh: cleanCnh }, emailRedirectTo: `${window.location.origin}/` },
     });
-    return { error: error?.message };
+    if (error) return { error: error.message };
+    if (data.user) {
+      await supabase.from("profiles").update({ full_name: fullName, cpf: cleanCpf, cnh: cleanCnh }).eq("id", data.user.id);
+    }
+    return {};
   };
   const signOut = async () => { await supabase.auth.signOut(); };
 
