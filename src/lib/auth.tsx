@@ -8,6 +8,7 @@ type AuthCtx = {
   isAdmin: boolean;
   loading: boolean;
   signIn: (cpf: string, password: string) => Promise<{ error?: string }>;
+  signInEmail: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (fullName: string, cpf: string, cnh: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 };
@@ -50,6 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({ email: cpfToEmail(cpf), password });
     return { error: error?.message };
   };
+  const signInEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message };
+  };
   const signUp = async (fullName: string, cpf: string, cnh: string, password: string) => {
     const cleanCpf = cpf.replace(/\D/g, "");
     const cleanCnh = cnh.replace(/\D/g, "");
@@ -65,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const signOut = async () => { await supabase.auth.signOut(); };
 
-  return <Ctx.Provider value={{ user, session, isAdmin, loading, signIn, signUp, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, session, isAdmin, loading, signIn, signInEmail, signUp, signOut }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => {
