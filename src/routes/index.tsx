@@ -356,4 +356,3 @@ function StatusBtn({ label, active, variant, onClick }: { label: string; active:
   const Icon = variant === "ok" ? CheckCircle2 : variant === "nok" ? XCircle : MinusCircle;
   return <button type="button" onClick={onClick} className={`${base} ${styles}`}><Icon className="size-4" />{label}</button>;
 }
-}
