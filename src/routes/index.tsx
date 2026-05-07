@@ -24,7 +24,8 @@ function Index() {
 function AuthScreen() {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"in" | "up">("in");
-  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [cnh, setCnh] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,7 +33,7 @@ function AuthScreen() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const r = mode === "in" ? await signIn(email, password) : await signUp(email, password, name);
+    const r = mode === "in" ? await signIn(cpf, password) : await signUp(name, cpf, cnh, password);
     setBusy(false);
     if (r.error) toast.error(r.error);
     else if (mode === "up") toast.success("Conta criada! Você já pode entrar.");
@@ -50,9 +51,12 @@ function AuthScreen() {
         </div>
         <form onSubmit={submit} className="space-y-3">
           {mode === "up" && (
-            <div><Label>Nome completo</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+            <>
+              <div><Label>Nome completo</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+              <div><Label>CNH (nº de registro)</Label><Input value={cnh} onChange={(e) => setCnh(e.target.value)} required /></div>
+            </>
           )}
-          <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+          <div><Label>CPF</Label><Input value={cpf} onChange={(e) => setCpf(e.target.value)} required placeholder="000.000.000-00" /></div>
           <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} /></div>
           <Button type="submit" className="w-full h-11 text-base" disabled={busy}>
             {busy ? "..." : mode === "in" ? "Entrar" : "Criar conta"}
