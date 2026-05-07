@@ -41,6 +41,8 @@ export const Route = createRootRoute({
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Lovable App" },
       { name: "twitter:description", content: "Fleet Check Pro digitizes vehicle inspections for fleet management, operational control, and reporting." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a2c0609b-7a2d-44cc-9356-b6f903d7199d/id-preview-0e07dd1a--e7ff0a9b-1e53-4cc1-8942-5272da8b6887.lovable.app-1778175500453.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a2c0609b-7a2d-44cc-9356-b6f903d7199d/id-preview-0e07dd1a--e7ff0a9b-1e53-4cc1-8942-5272da8b6887.lovable.app-1778175500453.png" },
     ],
     links: [
       {
