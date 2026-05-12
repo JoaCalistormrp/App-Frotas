@@ -454,7 +454,8 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
 }
 
 function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const [data, setData] = useState<{ checklist: HistoryRow | null; responses: Array<{ status: string; observation: string | null; checklist_items: { name: string; checklist_categories: { name: string } | null } | null }> }>({ checklist: null, responses: [] });
+  const [data, setData] = useState<{ checklist: HistoryRow | null; responses: Array<{ status: string; observation: string | null; photo_url: string | null; checklist_items: { name: string; checklist_categories: { name: string } | null } | null }> }>({ checklist: null, responses: [] });
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -467,18 +468,32 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
         profile = p;
       }
       const { data: resp } = await supabase.from("checklist_responses")
-        .select("status, observation, checklist_items(name, checklist_categories(name))")
+        .select("status, observation, photo_url, checklist_items(name, checklist_categories(name))")
         .eq("checklist_id", id);
       const merged = ck ? ({ ...(ck as object), profiles: profile } as unknown as HistoryRow) : null;
       setData({ checklist: merged, responses: (resp ?? []) as never });
+      // signed urls for photos
+      const paths = (resp ?? []).map((r: { photo_url: string | null }) => r.photo_url).filter(Boolean) as string[];
+      if (paths.length) {
+        const signed: Record<string, string> = {};
+        await Promise.all(paths.map(async (p) => {
+          const { data: s } = await supabase.storage.from("checklist-photos").createSignedUrl(p, 3600);
+          if (s?.signedUrl) signed[p] = s.signedUrl;
+        }));
+        setPhotoUrls(signed);
+      }
     })();
   }, [id]);
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     if (!data.checklist) return;
     const c = data.checklist;
     const doc = new jsPDF();
-    doc.setFontSize(14); doc.text("Checklist", 14, 14);
+    await applyPdfBranding(
+      doc,
+      `Checklist • ${c.vehicles?.plate ?? ""}`,
+      `${VEHICLE_TYPE_LABELS[c.vehicles?.vehicle_type ?? ""] ?? ""} • ${new Date(c.created_at).toLocaleString("pt-BR")}`,
+    );
     doc.setFontSize(10);
     const info = [
       `Placa: ${c.vehicles?.plate ?? ""} (${c.vehicles?.model ?? ""})`,
@@ -489,9 +504,9 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
       `Odômetro: ${c.odometer_start ?? "—"}`,
       `Status: ${c.has_issues ? "Com falhas" : "OK"}`,
     ];
-    info.forEach((t, i) => doc.text(t, 14, 22 + i * 6));
+    info.forEach((t, i) => doc.text(t, 14, 36 + i * 6));
     autoTable(doc, {
-      startY: 22 + info.length * 6 + 4,
+      startY: 36 + info.length * 6 + 4,
       head: [["Categoria", "Item", "Status", "Observação"]],
       body: data.responses.map((r) => [
         r.checklist_items?.checklist_categories?.name ?? "",
@@ -500,7 +515,29 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
         r.observation ?? "",
       ]),
       styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 40, 80] },
     });
+    // Append photos page(s)
+    const photoResps = data.responses.filter((r) => r.photo_url);
+    if (photoResps.length) {
+      doc.addPage();
+      await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${c.vehicles?.plate ?? ""}`);
+      let y = 36;
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      for (const r of photoResps) {
+        const url = photoUrls[r.photo_url!];
+        if (!url) continue;
+        try {
+          const dataUrl = await urlToDataUrl(url);
+          const label = `${r.checklist_items?.name ?? ""} — ${r.observation ?? ""}`;
+          if (y > pageH - 90) { doc.addPage(); await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${c.vehicles?.plate ?? ""}`); y = 36; }
+          doc.setFontSize(9); doc.text(label.slice(0, 100), 14, y);
+          doc.addImage(dataUrl, "JPEG", 14, y + 3, 80, 60, undefined, "FAST");
+          y += 72;
+        } catch { /* skip broken */ }
+      }
+    }
     doc.save(`checklist_${c.vehicles?.plate ?? id}_${new Date(c.created_at).toISOString().slice(0, 10)}.pdf`);
   };
 
@@ -527,6 +564,11 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
                   <div className="min-w-0">
                     <div className="font-medium">{r.checklist_items?.name}</div>
                     <div className="text-xs text-muted-foreground">{r.checklist_items?.checklist_categories?.name}{r.observation ? ` • ${r.observation}` : ""}</div>
+                    {r.photo_url && photoUrls[r.photo_url] && (
+                      <a href={photoUrls[r.photo_url]} target="_blank" rel="noreferrer" className="inline-block mt-1">
+                        <img src={photoUrls[r.photo_url]} alt="Evidência" className="h-20 w-20 object-cover rounded border border-border" />
+                      </a>
+                    )}
                   </div>
                   <span className={`text-xs font-bold shrink-0 ${r.status === "NAO_OK" ? "text-destructive" : r.status === "OK" ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>{r.status}</span>
                 </div>
