@@ -560,7 +560,17 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
   if (!vehicle) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div
+      className="min-h-screen bg-background pb-32 relative"
+      style={{
+        backgroundImage: `url(${logoTomaz})`,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center 40%",
+        backgroundSize: "min(70vw, 480px)",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="absolute inset-0 bg-background/85 pointer-events-none" aria-hidden />
       <header className="sticky top-0 z-10 bg-card border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <button onClick={onClose} className="text-sm text-muted-foreground">← Voltar</button>
