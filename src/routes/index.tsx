@@ -9,11 +9,62 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon } from "lucide-react";
-import { FileDown, FileSpreadsheet, Filter, Trash2 } from "lucide-react";
+import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
+
+// ---------- PDF branding helpers ----------
+let _logoCache: string | null = null;
+async function getLogoDataUrl(): Promise<string> {
+  if (_logoCache) return _logoCache;
+  const res = await fetch(logoTomaz);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => { _logoCache = r.result as string; resolve(_logoCache); };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function applyPdfBranding(doc: jsPDF, title: string, subtitle?: string) {
+  const logo = await getLogoDataUrl();
+  const w = doc.internal.pageSize.getWidth();
+  doc.addImage(logo, "PNG", 14, 8, 14, 14);
+  doc.setFontSize(14);
+  doc.setTextColor(20);
+  doc.text("Grupo Tomaz", 32, 15);
+  doc.setFontSize(11);
+  doc.setTextColor(60);
+  doc.text(title, 32, 21);
+  if (subtitle) {
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text(subtitle, 32, 26);
+  }
+  doc.setDrawColor(200);
+  doc.line(14, 28, w - 14, 28);
+  doc.setTextColor(0);
+  // Footer
+  const h = doc.internal.pageSize.getHeight();
+  doc.setFontSize(7);
+  doc.setTextColor(150);
+  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")} • Grupo Tomaz`, 14, h - 6);
+  doc.setTextColor(0);
+}
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -305,19 +356,20 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
     XLSX.writeFile(wb, `checklists_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(14);
-    doc.text("Relatório de Checklists", 14, 14);
-    doc.setFontSize(9);
-    doc.text(`Total: ${stats.total} • Com falhas: ${stats.issues} • Hoje: ${stats.today}`, 14, 20);
+    await applyPdfBranding(
+      doc,
+      "Relatório de Checklists",
+      `Total: ${stats.total} • Com falhas: ${stats.issues} • Hoje: ${stats.today}`,
+    );
     const data = rows();
     autoTable(doc, {
-      startY: 25,
+      startY: 32,
       head: [Object.keys(data[0] ?? { Data: "", Placa: "", Tipo: "", Motorista: "", Status: "" })],
       body: data.map((r) => Object.values(r).map((v) => String(v))),
       styles: { fontSize: 7 },
-      headStyles: { fillColor: [30, 30, 30] },
+      headStyles: { fillColor: [30, 40, 80] },
     });
     doc.save(`checklists_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
@@ -402,7 +454,8 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
 }
 
 function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const [data, setData] = useState<{ checklist: HistoryRow | null; responses: Array<{ status: string; observation: string | null; checklist_items: { name: string; checklist_categories: { name: string } | null } | null }> }>({ checklist: null, responses: [] });
+  const [data, setData] = useState<{ checklist: HistoryRow | null; responses: Array<{ status: string; observation: string | null; photo_url: string | null; checklist_items: { name: string; checklist_categories: { name: string } | null } | null }> }>({ checklist: null, responses: [] });
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -415,18 +468,32 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
         profile = p;
       }
       const { data: resp } = await supabase.from("checklist_responses")
-        .select("status, observation, checklist_items(name, checklist_categories(name))")
+        .select("status, observation, photo_url, checklist_items(name, checklist_categories(name))")
         .eq("checklist_id", id);
       const merged = ck ? ({ ...(ck as object), profiles: profile } as unknown as HistoryRow) : null;
       setData({ checklist: merged, responses: (resp ?? []) as never });
+      // signed urls for photos
+      const paths = (resp ?? []).map((r: { photo_url: string | null }) => r.photo_url).filter(Boolean) as string[];
+      if (paths.length) {
+        const signed: Record<string, string> = {};
+        await Promise.all(paths.map(async (p) => {
+          const { data: s } = await supabase.storage.from("checklist-photos").createSignedUrl(p, 3600);
+          if (s?.signedUrl) signed[p] = s.signedUrl;
+        }));
+        setPhotoUrls(signed);
+      }
     })();
   }, [id]);
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     if (!data.checklist) return;
     const c = data.checklist;
     const doc = new jsPDF();
-    doc.setFontSize(14); doc.text("Checklist", 14, 14);
+    await applyPdfBranding(
+      doc,
+      `Checklist • ${c.vehicles?.plate ?? ""}`,
+      `${VEHICLE_TYPE_LABELS[c.vehicles?.vehicle_type ?? ""] ?? ""} • ${new Date(c.created_at).toLocaleString("pt-BR")}`,
+    );
     doc.setFontSize(10);
     const info = [
       `Placa: ${c.vehicles?.plate ?? ""} (${c.vehicles?.model ?? ""})`,
@@ -437,9 +504,9 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
       `Odômetro: ${c.odometer_start ?? "—"}`,
       `Status: ${c.has_issues ? "Com falhas" : "OK"}`,
     ];
-    info.forEach((t, i) => doc.text(t, 14, 22 + i * 6));
+    info.forEach((t, i) => doc.text(t, 14, 36 + i * 6));
     autoTable(doc, {
-      startY: 22 + info.length * 6 + 4,
+      startY: 36 + info.length * 6 + 4,
       head: [["Categoria", "Item", "Status", "Observação"]],
       body: data.responses.map((r) => [
         r.checklist_items?.checklist_categories?.name ?? "",
@@ -448,7 +515,29 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
         r.observation ?? "",
       ]),
       styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 40, 80] },
     });
+    // Append photos page(s)
+    const photoResps = data.responses.filter((r) => r.photo_url);
+    if (photoResps.length) {
+      doc.addPage();
+      await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${c.vehicles?.plate ?? ""}`);
+      let y = 36;
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      for (const r of photoResps) {
+        const url = photoUrls[r.photo_url!];
+        if (!url) continue;
+        try {
+          const dataUrl = await urlToDataUrl(url);
+          const label = `${r.checklist_items?.name ?? ""} — ${r.observation ?? ""}`;
+          if (y > pageH - 90) { doc.addPage(); await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${c.vehicles?.plate ?? ""}`); y = 36; }
+          doc.setFontSize(9); doc.text(label.slice(0, 100), 14, y);
+          doc.addImage(dataUrl, "JPEG", 14, y + 3, 80, 60, undefined, "FAST");
+          y += 72;
+        } catch { /* skip broken */ }
+      }
+    }
     doc.save(`checklist_${c.vehicles?.plate ?? id}_${new Date(c.created_at).toISOString().slice(0, 10)}.pdf`);
   };
 
@@ -475,6 +564,11 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
                   <div className="min-w-0">
                     <div className="font-medium">{r.checklist_items?.name}</div>
                     <div className="text-xs text-muted-foreground">{r.checklist_items?.checklist_categories?.name}{r.observation ? ` • ${r.observation}` : ""}</div>
+                    {r.photo_url && photoUrls[r.photo_url] && (
+                      <a href={photoUrls[r.photo_url]} target="_blank" rel="noreferrer" className="inline-block mt-1">
+                        <img src={photoUrls[r.photo_url]} alt="Evidência" className="h-20 w-20 object-cover rounded border border-border" />
+                      </a>
+                    )}
                   </div>
                   <span className={`text-xs font-bold shrink-0 ${r.status === "NAO_OK" ? "text-destructive" : r.status === "OK" ? "text-[color:var(--success)]" : "text-muted-foreground"}`}>{r.status}</span>
                 </div>
@@ -490,7 +584,7 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
 
 type Item = { id: string; name: string; category_id: string };
 type Category = { id: string; name: string; sort_order: number };
-type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string };
+type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string; photo: File | null; photoPreview: string | null };
 
 function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: () => void }) {
   const { user } = useAuth();
@@ -518,7 +612,7 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
         const { data: it } = await supabase.from("checklist_items").select("*").in("category_id", ids).order("sort_order");
         setItems(it ?? []);
         const init: Record<string, Resp> = {};
-        (it ?? []).forEach((x) => { init[x.id] = { status: null, observation: "" }; });
+        (it ?? []).forEach((x) => { init[x.id] = { status: null, observation: "", photo: null, photoPreview: null }; });
         setResponses(init);
       }
     })();
@@ -528,6 +622,13 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], status } }));
   const setObs = (itemId: string, observation: string) =>
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], observation } }));
+  const setPhoto = (itemId: string, file: File | null) => {
+    setResponses((r) => {
+      const prev = r[itemId];
+      if (prev?.photoPreview) URL.revokeObjectURL(prev.photoPreview);
+      return { ...r, [itemId]: { ...prev, photo: file, photoPreview: file ? URL.createObjectURL(file) : null } };
+    });
+  };
 
   const submit = async () => {
     if (!user || !templateId) return;
@@ -545,10 +646,23 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
     }).select("id").single();
     if (error || !ck) { setBusy(false); return toast.error(error?.message ?? "Erro"); }
 
+    // Upload photos for items marked NAO_OK
+    const photoPaths: Record<string, string> = {};
+    for (const i of items) {
+      const f = responses[i.id]?.photo;
+      if (!f) continue;
+      const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${ck.id}/${i.id}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("checklist-photos")
+        .upload(path, f, { upsert: true, contentType: f.type || "image/jpeg" });
+      if (!upErr) photoPaths[i.id] = path;
+    }
     const rows = items.map((i) => ({
       checklist_id: ck.id, item_id: i.id,
       status: responses[i.id].status as "OK" | "NAO_OK" | "NA",
       observation: responses[i.id].observation || null,
+      photo_url: photoPaths[i.id] || null,
     }));
     const { error: e2 } = await supabase.from("checklist_responses").insert(rows);
     setBusy(false);
@@ -591,7 +705,7 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
             <h3 className="font-bold text-sm uppercase tracking-wider text-primary">{cat.name}</h3>
             <Card className="divide-y divide-border">
               {items.filter((i) => i.category_id === cat.id).map((it) => {
-                const r = responses[it.id] ?? { status: null, observation: "" };
+                const r = responses[it.id] ?? { status: null, observation: "", photo: null, photoPreview: null };
                 return (
                   <div key={it.id} className="p-3 space-y-2">
                     <div className="text-sm font-medium">{it.name}</div>
@@ -601,8 +715,35 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
                       <StatusBtn label="N/A" active={r.status === "NA"} variant="na" onClick={() => setStatus(it.id, "NA")} />
                     </div>
                     {r.status === "NAO_OK" && (
-                      <Textarea placeholder="Descreva o problema (obrigatório)" value={r.observation}
-                        onChange={(e) => setObs(it.id, e.target.value)} rows={2} />
+                      <>
+                        <Textarea placeholder="Descreva o problema (obrigatório)" value={r.observation}
+                          onChange={(e) => setObs(it.id, e.target.value)} rows={2} />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-xs font-medium cursor-pointer hover:bg-muted">
+                            <Camera className="size-4" />
+                            {r.photo ? "Trocar foto do dano" : "Tirar foto do dano"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={(e) => setPhoto(it.id, e.target.files?.[0] ?? null)}
+                            />
+                          </label>
+                          {r.photo && (
+                            <button
+                              type="button"
+                              onClick={() => setPhoto(it.id, null)}
+                              className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                            >
+                              <XIcon className="size-3" />Remover
+                            </button>
+                          )}
+                        </div>
+                        {r.photoPreview && (
+                          <img src={r.photoPreview} alt="Prévia do dano" className="h-24 w-24 object-cover rounded border border-border" />
+                        )}
+                      </>
                     )}
                   </div>
                 );
