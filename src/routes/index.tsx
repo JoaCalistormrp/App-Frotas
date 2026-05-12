@@ -13,6 +13,7 @@ import { FileDown, FileSpreadsheet, Filter, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -52,9 +53,9 @@ function AuthScreen() {
   return (
     <div className="min-h-screen grid place-items-center p-4 bg-background">
       <Card className="w-full max-w-md p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="size-11 rounded-xl bg-primary grid place-items-center text-primary-foreground"><Truck className="size-6" /></div>
-          <div>
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <img src={logoTomaz} alt="Grupo Tomaz" className="h-20 w-auto object-contain" />
+          <div className="text-center">
             <h1 className="text-xl font-bold tracking-tight">Checklist Frota</h1>
             <p className="text-xs text-muted-foreground">Inspeção veicular digital</p>
           </div>
@@ -114,8 +115,8 @@ function AppShell({ onSignOut }: { onSignOut: () => void }) {
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-10 bg-card border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground"><Truck className="size-5" /></div>
+          <div className="flex items-center gap-3">
+            <img src={logoTomaz} alt="Grupo Tomaz" className="h-10 w-auto object-contain" />
             <div>
               <div className="font-bold text-sm">Checklist Frota</div>
               <div className="text-[11px] text-muted-foreground">{user?.email} {isAdmin && <span className="text-primary font-semibold">• ADMIN</span>}</div>
