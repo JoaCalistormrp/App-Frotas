@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon } from "lucide-react";
-import { FileDown, FileSpreadsheet, Filter } from "lucide-react";
+import { FileDown, FileSpreadsheet, Filter, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -365,15 +365,32 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
         {!loading && filtered.length === 0 && <div className="text-xs text-muted-foreground">Nenhum checklist no filtro.</div>}
         <div className="divide-y divide-border max-h-[500px] overflow-auto">
           {filtered.map((c) => (
-            <button key={c.id} onClick={() => setDetail(c.id)} className="w-full text-left py-2 flex items-center justify-between text-sm hover:bg-muted/30 px-1 rounded">
-              <div className="min-w-0">
-                <div className="font-bold">{c.vehicles?.plate ?? "—"} <span className="text-xs text-muted-foreground font-normal">• {c.profiles?.full_name ?? "—"}</span></div>
-                <div className="text-xs text-muted-foreground truncate">{new Date(c.created_at).toLocaleString("pt-BR")}{c.itinerary ? ` • ${c.itinerary}` : ""}</div>
-              </div>
-              {c.has_issues
-                ? <span className="text-destructive flex items-center gap-1 text-xs shrink-0"><AlertTriangle className="size-4" />Com falhas</span>
-                : <span className="text-[color:var(--success)] flex items-center gap-1 text-xs shrink-0"><CheckCircle2 className="size-4" />OK</span>}
-            </button>
+            <div key={c.id} className="w-full py-2 flex items-center gap-2 text-sm hover:bg-muted/30 px-1 rounded">
+              <button onClick={() => setDetail(c.id)} className="flex-1 min-w-0 text-left flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-bold truncate">{c.vehicles?.plate ?? "—"} <span className="text-xs text-muted-foreground font-normal">• {c.profiles?.full_name ?? "—"}</span></div>
+                  <div className="text-xs text-muted-foreground truncate">{new Date(c.created_at).toLocaleString("pt-BR")}{c.itinerary ? ` • ${c.itinerary}` : ""}</div>
+                </div>
+                {c.has_issues
+                  ? <span className="text-destructive flex items-center gap-1 text-xs shrink-0"><AlertTriangle className="size-4" />Com falhas</span>
+                  : <span className="text-[color:var(--success)] flex items-center gap-1 text-xs shrink-0"><CheckCircle2 className="size-4" />OK</span>}
+              </button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={async () => {
+                  if (!confirm(`Apagar checklist de ${c.vehicles?.plate ?? "—"} de ${new Date(c.created_at).toLocaleString("pt-BR")}? Esta ação não pode ser desfeita.`)) return;
+                  await supabase.from("checklist_responses").delete().eq("checklist_id", c.id);
+                  const { error } = await supabase.from("checklists").delete().eq("id", c.id);
+                  if (error) { toast.error("Falha ao apagar"); return; }
+                  setAll((prev) => prev.filter((x) => x.id !== c.id));
+                  toast.success("Checklist apagado");
+                }}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
           ))}
         </div>
       </Card>
