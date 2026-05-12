@@ -584,7 +584,7 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
 
 type Item = { id: string; name: string; category_id: string };
 type Category = { id: string; name: string; sort_order: number };
-type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string };
+type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string; photo: File | null; photoPreview: string | null };
 
 function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: () => void }) {
   const { user } = useAuth();
@@ -612,7 +612,7 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
         const { data: it } = await supabase.from("checklist_items").select("*").in("category_id", ids).order("sort_order");
         setItems(it ?? []);
         const init: Record<string, Resp> = {};
-        (it ?? []).forEach((x) => { init[x.id] = { status: null, observation: "" }; });
+        (it ?? []).forEach((x) => { init[x.id] = { status: null, observation: "", photo: null, photoPreview: null }; });
         setResponses(init);
       }
     })();
@@ -622,6 +622,13 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], status } }));
   const setObs = (itemId: string, observation: string) =>
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], observation } }));
+  const setPhoto = (itemId: string, file: File | null) => {
+    setResponses((r) => {
+      const prev = r[itemId];
+      if (prev?.photoPreview) URL.revokeObjectURL(prev.photoPreview);
+      return { ...r, [itemId]: { ...prev, photo: file, photoPreview: file ? URL.createObjectURL(file) : null } };
+    });
+  };
 
   const submit = async () => {
     if (!user || !templateId) return;
@@ -639,10 +646,23 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
     }).select("id").single();
     if (error || !ck) { setBusy(false); return toast.error(error?.message ?? "Erro"); }
 
+    // Upload photos for items marked NAO_OK
+    const photoPaths: Record<string, string> = {};
+    for (const i of items) {
+      const f = responses[i.id]?.photo;
+      if (!f) continue;
+      const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${ck.id}/${i.id}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("checklist-photos")
+        .upload(path, f, { upsert: true, contentType: f.type || "image/jpeg" });
+      if (!upErr) photoPaths[i.id] = path;
+    }
     const rows = items.map((i) => ({
       checklist_id: ck.id, item_id: i.id,
       status: responses[i.id].status as "OK" | "NAO_OK" | "NA",
       observation: responses[i.id].observation || null,
+      photo_url: photoPaths[i.id] || null,
     }));
     const { error: e2 } = await supabase.from("checklist_responses").insert(rows);
     setBusy(false);
@@ -685,7 +705,7 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
             <h3 className="font-bold text-sm uppercase tracking-wider text-primary">{cat.name}</h3>
             <Card className="divide-y divide-border">
               {items.filter((i) => i.category_id === cat.id).map((it) => {
-                const r = responses[it.id] ?? { status: null, observation: "" };
+                const r = responses[it.id] ?? { status: null, observation: "", photo: null, photoPreview: null };
                 return (
                   <div key={it.id} className="p-3 space-y-2">
                     <div className="text-sm font-medium">{it.name}</div>
@@ -695,8 +715,35 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
                       <StatusBtn label="N/A" active={r.status === "NA"} variant="na" onClick={() => setStatus(it.id, "NA")} />
                     </div>
                     {r.status === "NAO_OK" && (
-                      <Textarea placeholder="Descreva o problema (obrigatório)" value={r.observation}
-                        onChange={(e) => setObs(it.id, e.target.value)} rows={2} />
+                      <>
+                        <Textarea placeholder="Descreva o problema (obrigatório)" value={r.observation}
+                          onChange={(e) => setObs(it.id, e.target.value)} rows={2} />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-xs font-medium cursor-pointer hover:bg-muted">
+                            <Camera className="size-4" />
+                            {r.photo ? "Trocar foto do dano" : "Tirar foto do dano"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={(e) => setPhoto(it.id, e.target.files?.[0] ?? null)}
+                            />
+                          </label>
+                          {r.photo && (
+                            <button
+                              type="button"
+                              onClick={() => setPhoto(it.id, null)}
+                              className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                            >
+                              <XIcon className="size-3" />Remover
+                            </button>
+                          )}
+                        </div>
+                        {r.photoPreview && (
+                          <img src={r.photoPreview} alt="Prévia do dano" className="h-24 w-24 object-cover rounded border border-border" />
+                        )}
+                      </>
                     )}
                   </div>
                 );
