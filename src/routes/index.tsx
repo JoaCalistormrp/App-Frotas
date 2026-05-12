@@ -356,19 +356,20 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
     XLSX.writeFile(wb, `checklists_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(14);
-    doc.text("Relatório de Checklists", 14, 14);
-    doc.setFontSize(9);
-    doc.text(`Total: ${stats.total} • Com falhas: ${stats.issues} • Hoje: ${stats.today}`, 14, 20);
+    await applyPdfBranding(
+      doc,
+      "Relatório de Checklists",
+      `Total: ${stats.total} • Com falhas: ${stats.issues} • Hoje: ${stats.today}`,
+    );
     const data = rows();
     autoTable(doc, {
-      startY: 25,
+      startY: 32,
       head: [Object.keys(data[0] ?? { Data: "", Placa: "", Tipo: "", Motorista: "", Status: "" })],
       body: data.map((r) => Object.values(r).map((v) => String(v))),
       styles: { fontSize: 7 },
-      headStyles: { fillColor: [30, 30, 30] },
+      headStyles: { fillColor: [30, 40, 80] },
     });
     doc.save(`checklists_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
