@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon } from "lucide-react";
-import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon } from "lucide-react";
+import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon, Users, Bell, Upload, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -417,6 +417,9 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
         </div>
       </Card>
 
+      <CnhAlerts />
+      <DriversPanel />
+
       <Card className="p-3">
         <div className="font-semibold text-sm mb-2">Histórico ({filtered.length})</div>
         {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
@@ -778,4 +781,273 @@ function StatusBtn({ label, active, variant, onClick }: { label: string; active:
     : "bg-transparent text-muted-foreground border-border hover:border-primary";
   const Icon = variant === "ok" ? CheckCircle2 : variant === "nok" ? XCircle : MinusCircle;
   return <button type="button" onClick={onClick} className={`${base} ${styles}`}><Icon className="size-4" />{label}</button>;
+}
+
+// ================= Drivers / CNH =================
+type DriverRow = {
+  id: string;
+  full_name: string | null;
+  cpf: string | null;
+  cnh: string | null;
+  cnh_category: string | null;
+  cnh_expires_at: string | null;
+  cnh_file_url: string | null;
+  phone: string | null;
+  company: string | null;
+};
+
+function daysUntil(date: string | null): number | null {
+  if (!date) return null;
+  const d = new Date(date + "T00:00:00");
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.floor((d.getTime() - today.getTime()) / 86400000);
+}
+
+function cnhStatus(date: string | null): { label: string; tone: "ok" | "warn" | "danger" | "muted" } {
+  const d = daysUntil(date);
+  if (d === null) return { label: "Sem data", tone: "muted" };
+  if (d < 0) return { label: `Vencida há ${Math.abs(d)}d`, tone: "danger" };
+  if (d <= 30) return { label: `Vence em ${d}d`, tone: "warn" };
+  return { label: `Válida (${d}d)`, tone: "ok" };
+}
+
+function CnhAlerts() {
+  const [drivers, setDrivers] = useState<DriverRow[]>([]);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name, cpf, cnh, cnh_category, cnh_expires_at, cnh_file_url, phone, company")
+        .not("cnh_expires_at", "is", null);
+      setDrivers((data ?? []) as DriverRow[]);
+    })();
+  }, []);
+  const expired = drivers.filter((d) => (daysUntil(d.cnh_expires_at) ?? 999) < 0);
+  const expiring = drivers.filter((d) => {
+    const x = daysUntil(d.cnh_expires_at);
+    return x !== null && x >= 0 && x <= 30;
+  });
+  if (!expired.length && !expiring.length) return null;
+  return (
+    <Card className="p-3 border-l-4 border-l-destructive bg-destructive/5">
+      <div className="flex items-center gap-2 font-semibold text-sm mb-2">
+        <Bell className="size-4 text-destructive" />
+        Alertas de CNH
+      </div>
+      {expired.length > 0 && (
+        <div className="mb-2">
+          <div className="text-xs font-bold text-destructive mb-1">Vencidas ({expired.length})</div>
+          <ul className="text-xs space-y-1">
+            {expired.map((d) => (
+              <li key={d.id} className="flex justify-between gap-2">
+                <span className="truncate">{d.full_name ?? "—"} {d.cnh ? `• ${d.cnh}` : ""}</span>
+                <span className="text-destructive shrink-0">{cnhStatus(d.cnh_expires_at).label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {expiring.length > 0 && (
+        <div>
+          <div className="text-xs font-bold text-[color:var(--warning,#b45309)] mb-1">A vencer em 30 dias ({expiring.length})</div>
+          <ul className="text-xs space-y-1">
+            {expiring.map((d) => (
+              <li key={d.id} className="flex justify-between gap-2">
+                <span className="truncate">{d.full_name ?? "—"} {d.cnh ? `• ${d.cnh}` : ""}</span>
+                <span className="shrink-0">{cnhStatus(d.cnh_expires_at).label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function DriversPanel() {
+  const [drivers, setDrivers] = useState<DriverRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "ok" | "warn" | "danger" | "missing">("all");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    // Get drivers (users with role = 'driver')
+    const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "driver");
+    const ids = (roles ?? []).map((r) => r.user_id);
+    if (!ids.length) { setDrivers([]); setLoading(false); return; }
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, cpf, cnh, cnh_category, cnh_expires_at, cnh_file_url, phone, company")
+      .in("id", ids)
+      .order("full_name");
+    setDrivers((data ?? []) as DriverRow[]);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const filtered = drivers.filter((d) => {
+    const q = search.trim().toLowerCase();
+    if (q) {
+      const hay = `${d.full_name ?? ""} ${d.cpf ?? ""} ${d.cnh ?? ""} ${d.phone ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (statusFilter !== "all") {
+      if (statusFilter === "missing") { if (d.cnh_expires_at) return false; }
+      else { if (cnhStatus(d.cnh_expires_at).tone !== statusFilter) return false; }
+    }
+    return true;
+  });
+
+  return (
+    <Card className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 font-semibold text-sm"><Users className="size-4" />Motoristas ({drivers.length})</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="md:col-span-2">
+          <Label className="text-xs">Buscar (nome, CPF, CNH, telefone)</Label>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Digite para filtrar..." />
+        </div>
+        <div>
+          <Label className="text-xs">Status da CNH</Label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+            <option value="all">Todos</option>
+            <option value="ok">Válida</option>
+            <option value="warn">A vencer (30d)</option>
+            <option value="danger">Vencida</option>
+            <option value="missing">Sem cadastro</option>
+          </select>
+        </div>
+      </div>
+      {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
+      {!loading && filtered.length === 0 && <div className="text-xs text-muted-foreground">Nenhum motorista encontrado.</div>}
+      <div className="divide-y divide-border max-h-[400px] overflow-auto">
+        {filtered.map((d) => {
+          const st = cnhStatus(d.cnh_expires_at);
+          const toneCls = st.tone === "danger" ? "text-destructive"
+            : st.tone === "warn" ? "text-amber-600"
+            : st.tone === "ok" ? "text-[color:var(--success)]"
+            : "text-muted-foreground";
+          return (
+            <button key={d.id} onClick={() => setSelected(d.id)} className="w-full py-2 px-1 flex items-center justify-between gap-2 text-sm hover:bg-muted/30 rounded text-left">
+              <div className="min-w-0">
+                <div className="font-bold truncate">{d.full_name ?? "—"}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {d.cpf ? `CPF ${d.cpf}` : "sem CPF"} {d.cnh ? `• CNH ${d.cnh}` : ""} {d.cnh_category ? `(${d.cnh_category})` : ""}
+                </div>
+              </div>
+              <div className={`text-xs font-semibold shrink-0 flex items-center gap-1 ${toneCls}`}>
+                {d.cnh_file_url && <FileText className="size-3" />}
+                {st.label}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {selected && (
+        <DriverDetailModal
+          driver={drivers.find((d) => d.id === selected)!}
+          onClose={() => setSelected(null)}
+          onSaved={() => { setSelected(null); load(); }}
+        />
+      )}
+    </Card>
+  );
+}
+
+function DriverDetailModal({ driver, onClose, onSaved }: { driver: DriverRow; onClose: () => void; onSaved: () => void }) {
+  const [fullName, setFullName] = useState(driver.full_name ?? "");
+  const [cpf, setCpf] = useState(driver.cpf ?? "");
+  const [cnh, setCnh] = useState(driver.cnh ?? "");
+  const [cat, setCat] = useState(driver.cnh_category ?? "");
+  const [expires, setExpires] = useState(driver.cnh_expires_at ?? "");
+  const [phone, setPhone] = useState(driver.phone ?? "");
+  const [company, setCompany] = useState(driver.company ?? "");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      if (!driver.cnh_file_url) return;
+      const { data } = await supabase.storage.from("driver-docs").createSignedUrl(driver.cnh_file_url, 600);
+      setPreviewUrl(data?.signedUrl ?? null);
+    })();
+  }, [driver.cnh_file_url]);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      let filePath = driver.cnh_file_url;
+      if (file) {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `${driver.id}/cnh-${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("driver-docs").upload(path, file, { upsert: true });
+        if (upErr) throw upErr;
+        filePath = path;
+      }
+      const { error } = await supabase.from("profiles").update({
+        full_name: fullName || null,
+        cpf: cpf || null,
+        cnh: cnh || null,
+        cnh_category: cat || null,
+        cnh_expires_at: expires || null,
+        cnh_file_url: filePath,
+        phone: phone || null,
+        company: company || null,
+      }).eq("id", driver.id);
+      if (error) throw error;
+      toast.success("Motorista atualizado");
+      onSaved();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4" onClick={onClose}>
+      <Card className="w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold">Cadastro do motorista</h3>
+          <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          <div><Label className="text-xs">Nome completo</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><Label className="text-xs">CPF</Label><Input value={cpf} onChange={(e) => setCpf(e.target.value)} /></div>
+            <div><Label className="text-xs">Telefone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+          </div>
+          <div><Label className="text-xs">Empresa</Label><Input value={company} onChange={(e) => setCompany(e.target.value)} /></div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2"><Label className="text-xs">Nº CNH</Label><Input value={cnh} onChange={(e) => setCnh(e.target.value)} /></div>
+            <div><Label className="text-xs">Cat.</Label>
+              <select value={cat} onChange={(e) => setCat(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+                <option value="">—</option>
+                {["A","B","AB","C","D","E","AC","AD","AE"].map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div><Label className="text-xs">Vencimento da CNH</Label><Input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} /></div>
+        </div>
+
+        <div className="space-y-2 pt-2 border-t border-border">
+          <Label className="text-xs flex items-center gap-1"><Upload className="size-3" />Anexar CNH (foto ou PDF)</Label>
+          <Input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          {file && <div className="text-xs text-muted-foreground">Selecionado: {file.name}</div>}
+          {previewUrl && !file && (
+            <a href={previewUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline flex items-center gap-1">
+              <FileText className="size-3" />Ver CNH anexada
+            </a>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+          <Button className="flex-1" onClick={save} disabled={busy}>{busy ? "..." : "Salvar"}</Button>
+        </div>
+      </Card>
+    </div>
+  );
 }
