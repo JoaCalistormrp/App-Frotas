@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -141,6 +141,11 @@ function AuthScreen() {
             {mode === "in" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
           </button>
         )}
+        <div className="pt-2 border-t text-center">
+          <Link to="/download" className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1">
+            📱 Baixar aplicativo para o seu dispositivo
+          </Link>
+        </div>
       </Card>
     </div>
   );
