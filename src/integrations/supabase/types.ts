@@ -219,6 +219,9 @@ export type Database = {
       profiles: {
         Row: {
           cnh: string | null
+          cnh_category: string | null
+          cnh_expires_at: string | null
+          cnh_file_url: string | null
           company: string | null
           cpf: string | null
           created_at: string
@@ -229,6 +232,9 @@ export type Database = {
         }
         Insert: {
           cnh?: string | null
+          cnh_category?: string | null
+          cnh_expires_at?: string | null
+          cnh_file_url?: string | null
           company?: string | null
           cpf?: string | null
           created_at?: string
@@ -239,6 +245,9 @@ export type Database = {
         }
         Update: {
           cnh?: string | null
+          cnh_category?: string | null
+          cnh_expires_at?: string | null
+          cnh_file_url?: string | null
           company?: string | null
           cpf?: string | null
           created_at?: string
