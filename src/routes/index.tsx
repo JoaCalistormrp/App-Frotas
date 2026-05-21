@@ -417,6 +417,9 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
         </div>
       </Card>
 
+      <CnhAlerts />
+      <DriversPanel />
+
       <Card className="p-3">
         <div className="font-semibold text-sm mb-2">Histórico ({filtered.length})</div>
         {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
