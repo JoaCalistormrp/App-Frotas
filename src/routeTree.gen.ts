@@ -14,6 +14,8 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminVehiclesRouteImport } from './routes/admin.vehicles'
+import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance'
+import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
 
 const DownloadRoute = DownloadRouteImport.update({
@@ -41,6 +43,16 @@ const AdminVehiclesRoute = AdminVehiclesRouteImport.update({
   path: '/vehicles',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMaintenanceRoute = AdminMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDriversRoute = AdminDriversRouteImport.update({
+  id: '/drivers',
+  path: '/drivers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminChecklistsRoute = AdminChecklistsRouteImport.update({
   id: '/checklists',
   path: '/checklists',
@@ -52,6 +64,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/download': typeof DownloadRoute
   '/admin/checklists': typeof AdminChecklistsRoute
+  '/admin/drivers': typeof AdminDriversRoute
+  '/admin/maintenance': typeof AdminMaintenanceRoute
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -59,6 +73,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
   '/admin/checklists': typeof AdminChecklistsRoute
+  '/admin/drivers': typeof AdminDriversRoute
+  '/admin/maintenance': typeof AdminMaintenanceRoute
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -68,6 +84,8 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/download': typeof DownloadRoute
   '/admin/checklists': typeof AdminChecklistsRoute
+  '/admin/drivers': typeof AdminDriversRoute
+  '/admin/maintenance': typeof AdminMaintenanceRoute
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -78,16 +96,27 @@ export interface FileRouteTypes {
     | '/admin'
     | '/download'
     | '/admin/checklists'
+    | '/admin/drivers'
+    | '/admin/maintenance'
     | '/admin/vehicles'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/download' | '/admin/checklists' | '/admin/vehicles' | '/admin'
+  to:
+    | '/'
+    | '/download'
+    | '/admin/checklists'
+    | '/admin/drivers'
+    | '/admin/maintenance'
+    | '/admin/vehicles'
+    | '/admin'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/download'
     | '/admin/checklists'
+    | '/admin/drivers'
+    | '/admin/maintenance'
     | '/admin/vehicles'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -135,6 +164,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVehiclesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/maintenance': {
+      id: '/admin/maintenance'
+      path: '/maintenance'
+      fullPath: '/admin/maintenance'
+      preLoaderRoute: typeof AdminMaintenanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/drivers': {
+      id: '/admin/drivers'
+      path: '/drivers'
+      fullPath: '/admin/drivers'
+      preLoaderRoute: typeof AdminDriversRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/checklists': {
       id: '/admin/checklists'
       path: '/checklists'
@@ -147,12 +190,16 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminChecklistsRoute: typeof AdminChecklistsRoute
+  AdminDriversRoute: typeof AdminDriversRoute
+  AdminMaintenanceRoute: typeof AdminMaintenanceRoute
   AdminVehiclesRoute: typeof AdminVehiclesRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminChecklistsRoute: AdminChecklistsRoute,
+  AdminDriversRoute: AdminDriversRoute,
+  AdminMaintenanceRoute: AdminMaintenanceRoute,
   AdminVehiclesRoute: AdminVehiclesRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -167,3 +214,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
