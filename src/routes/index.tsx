@@ -183,6 +183,17 @@ function AppShell({ onSignOut }: { onSignOut: () => void }) {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-5">
+        {isAdmin && (
+          <Link to="/admin" className="block">
+            <Card className="p-4 bg-primary text-primary-foreground hover:opacity-90 transition flex items-center justify-between">
+              <div>
+                <div className="font-bold">Abrir Painel Administrativo</div>
+                <div className="text-xs opacity-80">Dashboard, histórico, veículos, motoristas e SMV/SMI</div>
+              </div>
+              <ShieldCheck className="size-6" />
+            </Card>
+          </Link>
+        )}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold">Selecione um veículo</h2>
