@@ -17,6 +17,7 @@ import { Route as AdminVehiclesRouteImport } from './routes/admin.vehicles'
 import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance'
 import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
+import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
 
 const DownloadRoute = DownloadRouteImport.update({
   id: '/download',
@@ -58,6 +59,11 @@ const AdminChecklistsRoute = AdminChecklistsRouteImport.update({
   path: '/checklists',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMaintenanceIdRoute = AdminMaintenanceIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminMaintenanceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -65,18 +71,20 @@ export interface FileRoutesByFullPath {
   '/download': typeof DownloadRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
-  '/admin/maintenance': typeof AdminMaintenanceRoute
+  '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
-  '/admin/maintenance': typeof AdminMaintenanceRoute
+  '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,9 +93,10 @@ export interface FileRoutesById {
   '/download': typeof DownloadRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
-  '/admin/maintenance': typeof AdminMaintenanceRoute
+  '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/admin/maintenance'
     | '/admin/vehicles'
     | '/admin/'
+    | '/admin/maintenance/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/admin/maintenance'
     | '/admin/vehicles'
     | '/admin'
+    | '/admin/maintenance/$id'
   id:
     | '__root__'
     | '/'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/admin/maintenance'
     | '/admin/vehicles'
     | '/admin/'
+    | '/admin/maintenance/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,13 +197,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChecklistsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/maintenance/$id': {
+      id: '/admin/maintenance/$id'
+      path: '/$id'
+      fullPath: '/admin/maintenance/$id'
+      preLoaderRoute: typeof AdminMaintenanceIdRouteImport
+      parentRoute: typeof AdminMaintenanceRoute
+    }
   }
 }
+
+interface AdminMaintenanceRouteChildren {
+  AdminMaintenanceIdRoute: typeof AdminMaintenanceIdRoute
+}
+
+const AdminMaintenanceRouteChildren: AdminMaintenanceRouteChildren = {
+  AdminMaintenanceIdRoute: AdminMaintenanceIdRoute,
+}
+
+const AdminMaintenanceRouteWithChildren =
+  AdminMaintenanceRoute._addFileChildren(AdminMaintenanceRouteChildren)
 
 interface AdminRouteChildren {
   AdminChecklistsRoute: typeof AdminChecklistsRoute
   AdminDriversRoute: typeof AdminDriversRoute
-  AdminMaintenanceRoute: typeof AdminMaintenanceRoute
+  AdminMaintenanceRoute: typeof AdminMaintenanceRouteWithChildren
   AdminVehiclesRoute: typeof AdminVehiclesRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -199,7 +229,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminChecklistsRoute: AdminChecklistsRoute,
   AdminDriversRoute: AdminDriversRoute,
-  AdminMaintenanceRoute: AdminMaintenanceRoute,
+  AdminMaintenanceRoute: AdminMaintenanceRouteWithChildren,
   AdminVehiclesRoute: AdminVehiclesRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
