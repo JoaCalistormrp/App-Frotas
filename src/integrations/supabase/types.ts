@@ -89,6 +89,9 @@ export type Database = {
           item_id: string
           observation: string | null
           photo_url: string | null
+          resolution_status:
+            | Database["public"]["Enums"]["maintenance_status"]
+            | null
           status: Database["public"]["Enums"]["response_status"]
         }
         Insert: {
@@ -98,6 +101,9 @@ export type Database = {
           item_id: string
           observation?: string | null
           photo_url?: string | null
+          resolution_status?:
+            | Database["public"]["Enums"]["maintenance_status"]
+            | null
           status: Database["public"]["Enums"]["response_status"]
         }
         Update: {
@@ -107,6 +113,9 @@ export type Database = {
           item_id?: string
           observation?: string | null
           photo_url?: string | null
+          resolution_status?:
+            | Database["public"]["Enums"]["maintenance_status"]
+            | null
           status?: Database["public"]["Enums"]["response_status"]
         }
         Relationships: [
@@ -216,44 +225,140 @@ export type Database = {
           },
         ]
       }
+      maintenance_order_counters: {
+        Row: {
+          base_code: string
+          last_number: number
+        }
+        Insert: {
+          base_code: string
+          last_number?: number
+        }
+        Update: {
+          base_code?: string
+          last_number?: number
+        }
+        Relationships: []
+      }
+      maintenance_orders: {
+        Row: {
+          base_code: string
+          checklist_id: string | null
+          created_at: string
+          created_by: string | null
+          driver_id: string | null
+          failure_description: string | null
+          id: string
+          mechanic_signature_url: string | null
+          observations: string | null
+          order_number: string
+          order_type: Database["public"]["Enums"]["maintenance_type"]
+          response_id: string | null
+          responsible_signature_url: string | null
+          service_type: string | null
+          signed_at: string | null
+          status: Database["public"]["Enums"]["maintenance_status"]
+          updated_at: string
+          vehicle_id: string | null
+          workshop: string | null
+        }
+        Insert: {
+          base_code: string
+          checklist_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          failure_description?: string | null
+          id?: string
+          mechanic_signature_url?: string | null
+          observations?: string | null
+          order_number: string
+          order_type: Database["public"]["Enums"]["maintenance_type"]
+          response_id?: string | null
+          responsible_signature_url?: string | null
+          service_type?: string | null
+          signed_at?: string | null
+          status?: Database["public"]["Enums"]["maintenance_status"]
+          updated_at?: string
+          vehicle_id?: string | null
+          workshop?: string | null
+        }
+        Update: {
+          base_code?: string
+          checklist_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          failure_description?: string | null
+          id?: string
+          mechanic_signature_url?: string | null
+          observations?: string | null
+          order_number?: string
+          order_type?: Database["public"]["Enums"]["maintenance_type"]
+          response_id?: string | null
+          responsible_signature_url?: string | null
+          service_type?: string | null
+          signed_at?: string | null
+          status?: Database["public"]["Enums"]["maintenance_status"]
+          updated_at?: string
+          vehicle_id?: string | null
+          workshop?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          base: string | null
           cnh: string | null
           cnh_category: string | null
           cnh_expires_at: string | null
           cnh_file_url: string | null
+          cnh_photo_url: string | null
+          cnh_renewal_history: Json | null
           company: string | null
           cpf: string | null
           created_at: string
           full_name: string | null
           id: string
           phone: string | null
+          role_function: Database["public"]["Enums"]["driver_function"] | null
+          unlock_card: string | null
           updated_at: string
         }
         Insert: {
+          base?: string | null
           cnh?: string | null
           cnh_category?: string | null
           cnh_expires_at?: string | null
           cnh_file_url?: string | null
+          cnh_photo_url?: string | null
+          cnh_renewal_history?: Json | null
           company?: string | null
           cpf?: string | null
           created_at?: string
           full_name?: string | null
           id: string
           phone?: string | null
+          role_function?: Database["public"]["Enums"]["driver_function"] | null
+          unlock_card?: string | null
           updated_at?: string
         }
         Update: {
+          base?: string | null
           cnh?: string | null
           cnh_category?: string | null
           cnh_expires_at?: string | null
           cnh_file_url?: string | null
+          cnh_photo_url?: string | null
+          cnh_renewal_history?: Json | null
           company?: string | null
           cpf?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
           phone?: string | null
+          role_function?: Database["public"]["Enums"]["driver_function"] | null
+          unlock_card?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -283,35 +388,56 @@ export type Database = {
         Row: {
           active: boolean
           base: string | null
+          brand: string | null
+          category: Database["public"]["Enums"]["vehicle_category"] | null
           created_at: string
+          document_url: string | null
+          fuel_type: string | null
           id: string
+          mileage: number | null
           model: string | null
           plate: string
+          renavam: string | null
           sector: string | null
           updated_at: string
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+          year: number | null
         }
         Insert: {
           active?: boolean
           base?: string | null
+          brand?: string | null
+          category?: Database["public"]["Enums"]["vehicle_category"] | null
           created_at?: string
+          document_url?: string | null
+          fuel_type?: string | null
           id?: string
+          mileage?: number | null
           model?: string | null
           plate: string
+          renavam?: string | null
           sector?: string | null
           updated_at?: string
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+          year?: number | null
         }
         Update: {
           active?: boolean
           base?: string | null
+          brand?: string | null
+          category?: Database["public"]["Enums"]["vehicle_category"] | null
           created_at?: string
+          document_url?: string | null
+          fuel_type?: string | null
           id?: string
+          mileage?: number | null
           model?: string | null
           plate?: string
+          renavam?: string | null
           sector?: string | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
+          year?: number | null
         }
         Relationships: []
       }
@@ -327,11 +453,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      next_order_number: { Args: { _base: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "driver"
       checklist_status: "in_progress" | "completed"
+      driver_function:
+        | "diretor"
+        | "administrativo"
+        | "encarregado"
+        | "motorista"
+      maintenance_status: "pendente" | "em_manutencao" | "solucionado"
+      maintenance_type: "SMI" | "SMV"
       response_status: "OK" | "NAO_OK" | "NA"
+      vehicle_category: "pesado" | "operacional" | "administrativo"
       vehicle_type:
         | "PESADOS"
         | "OPERACIONAIS"
@@ -467,7 +602,16 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "driver"],
       checklist_status: ["in_progress", "completed"],
+      driver_function: [
+        "diretor",
+        "administrativo",
+        "encarregado",
+        "motorista",
+      ],
+      maintenance_status: ["pendente", "em_manutencao", "solucionado"],
+      maintenance_type: ["SMI", "SMV"],
       response_status: ["OK", "NAO_OK", "NA"],
+      vehicle_category: ["pesado", "operacional", "administrativo"],
       vehicle_type: [
         "PESADOS",
         "OPERACIONAIS",
