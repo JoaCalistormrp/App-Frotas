@@ -177,8 +177,23 @@ function OrderForm() {
           </select>
         </div>
         <div className="md:col-span-3"><Label className="text-xs">Descrição da falha</Label><Textarea rows={3} value={order.failure_description} onChange={(e) => setOrder({ ...order, failure_description: e.target.value })} /></div>
-        <div><Label className="text-xs">Tipo de manutenção</Label><Input value={order.service_type} onChange={(e) => setOrder({ ...order, service_type: e.target.value })} placeholder="Ex.: corretiva, preventiva" /></div>
-        <div className="md:col-span-2"><Label className="text-xs">Oficina responsável</Label><Input value={order.workshop} onChange={(e) => setOrder({ ...order, workshop: e.target.value })} /></div>
+        <div><Label className="text-xs">Categoria</Label>
+          <select value={order.maintenance_category ?? "corretiva"} onChange={(e) => setOrder({ ...order, maintenance_category: e.target.value })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+            <option value="corretiva">Corretiva</option><option value="preventiva">Preventiva</option><option value="planejada">Planejada</option>
+          </select>
+        </div>
+        <div><Label className="text-xs">Tipo / serviço</Label><Input value={order.service_type} onChange={(e) => setOrder({ ...order, service_type: e.target.value })} /></div>
+        <div><Label className="text-xs">Oficina responsável</Label><Input value={order.workshop} onChange={(e) => setOrder({ ...order, workshop: e.target.value })} /></div>
+        <div><Label className="text-xs">Modelo do carro</Label><Input value={order.mod_carro ?? ""} onChange={(e) => setOrder({ ...order, mod_carro: e.target.value })} /></div>
+        <div><Label className="text-xs">KM atual</Label><Input type="number" value={order.km_atual ?? ""} onChange={(e) => setOrder({ ...order, km_atual: e.target.value ? Number(e.target.value) : null })} /></div>
+        <div><Label className="text-xs">Validade do óleo</Label><Input value={order.validade_oleo ?? ""} onChange={(e) => setOrder({ ...order, validade_oleo: e.target.value })} placeholder="KM ou data" /></div>
+        <div><Label className="text-xs">Combustível chegada</Label><Input value={order.combustivel_chegada ?? ""} onChange={(e) => setOrder({ ...order, combustivel_chegada: e.target.value })} /></div>
+        <div><Label className="text-xs">Data entrada</Label><Input type="date" value={order.data_entrada ?? ""} onChange={(e) => setOrder({ ...order, data_entrada: e.target.value })} /></div>
+        <div><Label className="text-xs">Hora entrada</Label><Input type="time" value={order.hora_entrada ?? ""} onChange={(e) => setOrder({ ...order, hora_entrada: e.target.value })} /></div>
+        <div><Label className="text-xs">Data saída</Label><Input type="date" value={order.data_saida ?? ""} onChange={(e) => setOrder({ ...order, data_saida: e.target.value })} /></div>
+        <div><Label className="text-xs">Hora saída</Label><Input type="time" value={order.hora_saida ?? ""} onChange={(e) => setOrder({ ...order, hora_saida: e.target.value })} /></div>
+        <div className="md:col-span-3"><Label className="text-xs">Descrição da solução</Label><Textarea rows={3} value={order.solution_description ?? ""} onChange={(e) => setOrder({ ...order, solution_description: e.target.value })} /></div>
+        <div className="md:col-span-3"><Label className="text-xs">Itens trocados</Label><Textarea rows={2} value={order.items_replaced ?? ""} onChange={(e) => setOrder({ ...order, items_replaced: e.target.value })} /></div>
         <div className="md:col-span-3"><Label className="text-xs">Observações</Label><Textarea rows={3} value={order.observations} onChange={(e) => setOrder({ ...order, observations: e.target.value })} /></div>
       </Card>
 
