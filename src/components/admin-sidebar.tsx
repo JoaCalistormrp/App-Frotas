@@ -20,8 +20,7 @@ export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { signOut, user } = useAuth();
-  const { isAdmin } = useAuth();
+  const { signOut, user, isAdmin } = useAuth();
   const isActive = (url: string, exact?: boolean) => exact ? path === url : path === url || path.startsWith(url + "/");
   return (
     <Sidebar collapsible="icon">
