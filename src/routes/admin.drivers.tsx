@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, X as XIcon, Upload, FileText } from "lucide-react";
+import { Users, X as XIcon, Upload, FileText, Camera, History, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/admin/drivers")({ component: DriversPage });
 
@@ -15,6 +15,7 @@ type Driver = {
   cnh_category: string | null; cnh_expires_at: string | null; cnh_file_url: string | null;
   cnh_photo_url: string | null; phone: string | null; company: string | null;
   base: string | null; role_function: string | null; unlock_card: string | null;
+  cnh_renewal_history?: Array<{ date: string; new_expiry: string | null; note?: string }> | null;
 };
 
 const FUNCTIONS = [
@@ -130,13 +131,23 @@ function DriverModal({ driver, onClose, onSaved }: { driver: Driver; onClose: ()
   const [expires, setExpires] = useState(driver.cnh_expires_at ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [history, setHistory] = useState<Array<{ date: string; new_expiry: string | null; note?: string }>>(
+    Array.isArray(driver.cnh_renewal_history) ? driver.cnh_renewal_history : [],
+  );
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { (async () => {
-    if (!driver.cnh_file_url) return;
-    const { data } = await supabase.storage.from("driver-docs").createSignedUrl(driver.cnh_file_url, 600);
-    setPreviewUrl(data?.signedUrl ?? null);
-  })(); }, [driver.cnh_file_url]);
+    if (driver.cnh_file_url) {
+      const { data } = await supabase.storage.from("driver-docs").createSignedUrl(driver.cnh_file_url, 600);
+      setPreviewUrl(data?.signedUrl ?? null);
+    }
+    if (driver.cnh_photo_url) {
+      const { data } = await supabase.storage.from("driver-docs").createSignedUrl(driver.cnh_photo_url, 600);
+      setPhotoUrl(data?.signedUrl ?? null);
+    }
+  })(); }, [driver.cnh_file_url, driver.cnh_photo_url]);
 
   const save = async () => {
     setBusy(true);
@@ -149,15 +160,40 @@ function DriverModal({ driver, onClose, onSaved }: { driver: Driver; onClose: ()
         if (e) throw e;
         path = p;
       }
+      let photoPath = driver.cnh_photo_url;
+      if (photoFile) {
+        const ext = (photoFile.name.split(".").pop() ?? "jpg").toLowerCase();
+        const p = `${driver.id}/foto-${Date.now()}.${ext}`;
+        const { error: e } = await supabase.storage.from("driver-docs").upload(p, photoFile, { upsert: true });
+        if (e) throw e;
+        photoPath = p;
+      }
+      // Auto log renewal if expiry changed
+      let newHistory = history;
+      if (expires && expires !== (driver.cnh_expires_at ?? "")) {
+        const already = history.some((h) => h.new_expiry === expires);
+        if (!already) {
+          newHistory = [{ date: new Date().toISOString().slice(0, 10), new_expiry: expires, note: "Renovação registrada" }, ...history];
+        }
+      }
       const { error } = await supabase.from("profiles").update({
         full_name: fullName || null, cpf: cpf || null, phone: phone || null, company: company || null,
         base: base || null, role_function: (func || null) as never, unlock_card: unlockCard || null,
         cnh: cnh || null, cnh_category: cat || null, cnh_expires_at: expires || null, cnh_file_url: path,
+        cnh_photo_url: photoPath, cnh_renewal_history: newHistory as never,
       }).eq("id", driver.id);
       if (error) throw error;
       toast.success("Atualizado"); onSaved();
     } catch (e) { toast.error((e as Error).message); }
     finally { setBusy(false); }
+  };
+
+  const addManualRenewal = () => {
+    const d = prompt("Data da renovação (AAAA-MM-DD):", new Date().toISOString().slice(0, 10));
+    if (!d) return;
+    const nx = prompt("Novo vencimento (AAAA-MM-DD):", expires || "");
+    const note = prompt("Observação (opcional):", "") || undefined;
+    setHistory([{ date: d, new_expiry: nx || null, note }, ...history]);
   };
 
   return (
@@ -166,6 +202,22 @@ function DriverModal({ driver, onClose, onSaved }: { driver: Driver; onClose: ()
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-lg">Ficha do colaborador</h3>
           <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
+        </div>
+        <div className="flex items-start gap-3 pb-3 border-b border-border">
+          <div className="w-24 h-32 bg-muted rounded overflow-hidden grid place-items-center shrink-0">
+            {photoFile ? (
+              <img src={URL.createObjectURL(photoFile)} alt="" className="w-full h-full object-cover" />
+            ) : photoUrl ? (
+              <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <Camera className="size-8 text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs flex items-center gap-1"><Camera className="size-3" />Foto do motorista (conforme CNH)</Label>
+            <Input type="file" accept="image/*" capture="user" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
+            <p className="text-[10px] text-muted-foreground">Use a câmera ou selecione uma imagem.</p>
+          </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div className="md:col-span-3"><Label className="text-xs">Nome completo</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
@@ -191,6 +243,24 @@ function DriverModal({ driver, onClose, onSaved }: { driver: Driver; onClose: ()
           <Label className="text-xs flex items-center gap-1"><Upload className="size-3" />Anexar CNH</Label>
           <Input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           {previewUrl && !file && <a href={previewUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline flex items-center gap-1"><FileText className="size-3" />Ver CNH anexada</a>}
+        </div>
+        <div className="pt-2 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs flex items-center gap-1"><History className="size-3" />Histórico de renovações da CNH</Label>
+            <Button type="button" size="sm" variant="outline" onClick={addManualRenewal}><Plus className="size-3" />Registrar</Button>
+          </div>
+          {history.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhuma renovação registrada. Alterar o vencimento acima cria um registro automaticamente.</p>
+          ) : (
+            <ul className="text-xs space-y-1 max-h-32 overflow-auto">
+              {history.map((h, i) => (
+                <li key={i} className="flex justify-between gap-2 p-2 bg-muted/40 rounded">
+                  <span><strong>{h.date}</strong>{h.new_expiry && <> → vence em <strong>{h.new_expiry}</strong></>}{h.note && <span className="text-muted-foreground"> • {h.note}</span>}</span>
+                  <button type="button" onClick={() => setHistory(history.filter((_, j) => j !== i))} className="text-destructive"><XIcon className="size-3" /></button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="flex gap-2 pt-2">
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>

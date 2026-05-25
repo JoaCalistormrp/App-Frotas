@@ -244,12 +244,21 @@ export type Database = {
         Row: {
           base_code: string
           checklist_id: string | null
+          combustivel_chegada: string | null
           created_at: string
           created_by: string | null
+          data_entrada: string | null
+          data_saida: string | null
           driver_id: string | null
           failure_description: string | null
+          hora_entrada: string | null
+          hora_saida: string | null
           id: string
+          items_replaced: string | null
+          km_atual: number | null
+          maintenance_category: string | null
           mechanic_signature_url: string | null
+          mod_carro: string | null
           observations: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["maintenance_type"]
@@ -257,20 +266,31 @@ export type Database = {
           responsible_signature_url: string | null
           service_type: string | null
           signed_at: string | null
+          solution_description: string | null
           status: Database["public"]["Enums"]["maintenance_status"]
           updated_at: string
+          validade_oleo: string | null
           vehicle_id: string | null
           workshop: string | null
         }
         Insert: {
           base_code: string
           checklist_id?: string | null
+          combustivel_chegada?: string | null
           created_at?: string
           created_by?: string | null
+          data_entrada?: string | null
+          data_saida?: string | null
           driver_id?: string | null
           failure_description?: string | null
+          hora_entrada?: string | null
+          hora_saida?: string | null
           id?: string
+          items_replaced?: string | null
+          km_atual?: number | null
+          maintenance_category?: string | null
           mechanic_signature_url?: string | null
+          mod_carro?: string | null
           observations?: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["maintenance_type"]
@@ -278,20 +298,31 @@ export type Database = {
           responsible_signature_url?: string | null
           service_type?: string | null
           signed_at?: string | null
+          solution_description?: string | null
           status?: Database["public"]["Enums"]["maintenance_status"]
           updated_at?: string
+          validade_oleo?: string | null
           vehicle_id?: string | null
           workshop?: string | null
         }
         Update: {
           base_code?: string
           checklist_id?: string | null
+          combustivel_chegada?: string | null
           created_at?: string
           created_by?: string | null
+          data_entrada?: string | null
+          data_saida?: string | null
           driver_id?: string | null
           failure_description?: string | null
+          hora_entrada?: string | null
+          hora_saida?: string | null
           id?: string
+          items_replaced?: string | null
+          km_atual?: number | null
+          maintenance_category?: string | null
           mechanic_signature_url?: string | null
+          mod_carro?: string | null
           observations?: string | null
           order_number?: string
           order_type?: Database["public"]["Enums"]["maintenance_type"]
@@ -299,8 +330,10 @@ export type Database = {
           responsible_signature_url?: string | null
           service_type?: string | null
           signed_at?: string | null
+          solution_description?: string | null
           status?: Database["public"]["Enums"]["maintenance_status"]
           updated_at?: string
+          validade_oleo?: string | null
           vehicle_id?: string | null
           workshop?: string | null
         }
@@ -456,7 +489,7 @@ export type Database = {
       next_order_number: { Args: { _base: string }; Returns: string }
     }
     Enums: {
-      app_role: "admin" | "driver"
+      app_role: "admin" | "driver" | "viewer" | "mechanic"
       checklist_status: "in_progress" | "completed"
       driver_function:
         | "diretor"
@@ -600,7 +633,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "driver"],
+      app_role: ["admin", "driver", "viewer", "mechanic"],
       checklist_status: ["in_progress", "completed"],
       driver_function: [
         "diretor",

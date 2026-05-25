@@ -20,6 +20,10 @@ type Order = {
   vehicle_id: string | null; driver_id: string | null; checklist_id: string | null;
   failure_description: string; service_type: string; workshop: string;
   status: "pendente" | "em_manutencao" | "solucionado"; observations: string;
+  maintenance_category?: string; validade_oleo?: string; km_atual?: number | null;
+  combustivel_chegada?: string; data_entrada?: string; hora_entrada?: string;
+  data_saida?: string; hora_saida?: string; mod_carro?: string;
+  solution_description?: string; items_replaced?: string;
 };
 
 function OrderForm() {
@@ -30,6 +34,9 @@ function OrderForm() {
   const [order, setOrder] = useState<Order>({
     order_type: "SMI", base_code: "VOT", vehicle_id: null, driver_id: null, checklist_id: null,
     failure_description: "", service_type: "", workshop: "", status: "pendente", observations: "",
+    maintenance_category: "corretiva", validade_oleo: "", km_atual: null,
+    combustivel_chegada: "", data_entrada: "", hora_entrada: "",
+    data_saida: "", hora_saida: "", mod_carro: "", solution_description: "", items_replaced: "",
   });
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Array<{ id: string; plate: string }>>([]);
@@ -73,25 +80,57 @@ function OrderForm() {
     const doc = new jsPDF();
     const veh = vehicles.find((v) => v.id === order.vehicle_id);
     const drv = drivers.find((d) => d.id === order.driver_id);
-    await applyPdfBranding(doc, `${order.order_type} - ${orderNumber ?? "(nova)"}`, `Status: ${order.status}`);
-    autoTable(doc, {
-      startY: 36,
-      head: [["Campo", "Valor"]],
-      body: [
-        ["Número", orderNumber ?? "—"], ["Tipo", order.order_type], ["Base", order.base_code],
-        ["Data", new Date().toLocaleString("pt-BR")],
-        ["Veículo / Placa", veh?.plate ?? "—"], ["Motorista", drv?.full_name ?? "—"],
-        ["Descrição da falha", order.failure_description || "—"],
-        ["Tipo de manutenção", order.service_type || "—"], ["Oficina", order.workshop || "—"],
-        ["Observações", order.observations || "—"],
-      ],
-      styles: { fontSize: 9 }, headStyles: { fillColor: [30, 40, 80] },
+    const fullTitle = order.order_type === "SMI" ? "SOLICITAÇÃO DE MANUTENÇÃO INTERNA" : "SOLICITAÇÃO DE MANUTENÇÃO VEICULAR";
+    await applyPdfBranding(doc, `${order.order_type} — ${fullTitle}`, `Nº ${orderNumber ?? "(nova)"} • Status: ${order.status}`);
+    // Categoria
+    doc.setFontSize(10); doc.setFont("helvetica", "bold");
+    doc.text("TIPO DE MANUTENÇÃO:", 14, 36);
+    doc.setFont("helvetica", "normal");
+    const cats = ["corretiva", "preventiva", "planejada"] as const;
+    cats.forEach((c, i) => {
+      const x = 60 + i * 45;
+      doc.rect(x, 32, 4, 4);
+      if (order.maintenance_category === c) { doc.setFillColor(0, 0, 0); doc.rect(x + 0.5, 32.5, 3, 3, "F"); }
+      doc.text(c.toUpperCase(), x + 6, 35.5);
     });
-    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+    // Tabela de dados
+    autoTable(doc, {
+      startY: 42,
+      head: [["DADOS", "", "DADOS", ""]],
+      body: [
+        ["Placa", veh?.plate ?? "—", "Nº OS", orderNumber ?? "—"],
+        ["Modelo do carro", order.mod_carro || veh?.plate || "—", "Validade do óleo", order.validade_oleo || "—"],
+        ["KM atual", order.km_atual?.toString() ?? "—", "Combustível chegada", order.combustivel_chegada || "—"],
+        ["Data entrada", order.data_entrada || "—", "Hora entrada", order.hora_entrada || "—"],
+        ["Data saída", order.data_saida || "—", "Hora saída", order.hora_saida || "—"],
+        ["Motorista", drv?.full_name ?? "—", "Oficina", order.workshop || "—"],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 40, 80], textColor: 255 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 38 }, 2: { fontStyle: "bold", cellWidth: 38 } },
+    });
+    let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+    const section = (title: string, content: string, h: number) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+      doc.setFillColor(30, 40, 80); doc.setTextColor(255);
+      doc.rect(14, y, 182, 6, "F"); doc.text(title, 16, y + 4);
+      doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      y += 6;
+      doc.rect(14, y, 182, h);
+      const lines = doc.splitTextToSize(content || "—", 178);
+      doc.text(lines, 16, y + 5);
+      y += h + 4;
+    };
+    section("DESCRIÇÃO DO PROBLEMA", order.failure_description, 36);
+    section("DESCRIÇÃO DA SOLUÇÃO", order.solution_description ?? "", 36);
+    section("ITENS TROCADOS", order.items_replaced ?? "", 20);
+    if (order.observations) section("OBSERVAÇÕES", order.observations, 16);
+    // Assinaturas
+    y += 10;
     doc.setFontSize(9);
-    doc.line(20, finalY, 90, finalY); doc.text("Assinatura do mecânico", 30, finalY + 5);
-    doc.line(120, finalY, 190, finalY); doc.text("Assinatura do responsável", 130, finalY + 5);
-    doc.text(`Data: ____ / ____ / ________`, 20, finalY + 20);
+    doc.line(20, y, 90, y); doc.text("Assinatura do mecânico", 30, y + 5);
+    doc.line(120, y, 190, y); doc.text("Assinatura do responsável", 130, y + 5);
+    doc.text(`Data: ____ / ____ / ________`, 20, y + 15);
     doc.save(`${order.order_type}_${orderNumber ?? "nova"}.pdf`);
   };
 
@@ -138,8 +177,23 @@ function OrderForm() {
           </select>
         </div>
         <div className="md:col-span-3"><Label className="text-xs">Descrição da falha</Label><Textarea rows={3} value={order.failure_description} onChange={(e) => setOrder({ ...order, failure_description: e.target.value })} /></div>
-        <div><Label className="text-xs">Tipo de manutenção</Label><Input value={order.service_type} onChange={(e) => setOrder({ ...order, service_type: e.target.value })} placeholder="Ex.: corretiva, preventiva" /></div>
-        <div className="md:col-span-2"><Label className="text-xs">Oficina responsável</Label><Input value={order.workshop} onChange={(e) => setOrder({ ...order, workshop: e.target.value })} /></div>
+        <div><Label className="text-xs">Categoria</Label>
+          <select value={order.maintenance_category ?? "corretiva"} onChange={(e) => setOrder({ ...order, maintenance_category: e.target.value })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+            <option value="corretiva">Corretiva</option><option value="preventiva">Preventiva</option><option value="planejada">Planejada</option>
+          </select>
+        </div>
+        <div><Label className="text-xs">Tipo / serviço</Label><Input value={order.service_type} onChange={(e) => setOrder({ ...order, service_type: e.target.value })} /></div>
+        <div><Label className="text-xs">Oficina responsável</Label><Input value={order.workshop} onChange={(e) => setOrder({ ...order, workshop: e.target.value })} /></div>
+        <div><Label className="text-xs">Modelo do carro</Label><Input value={order.mod_carro ?? ""} onChange={(e) => setOrder({ ...order, mod_carro: e.target.value })} /></div>
+        <div><Label className="text-xs">KM atual</Label><Input type="number" value={order.km_atual ?? ""} onChange={(e) => setOrder({ ...order, km_atual: e.target.value ? Number(e.target.value) : null })} /></div>
+        <div><Label className="text-xs">Validade do óleo</Label><Input value={order.validade_oleo ?? ""} onChange={(e) => setOrder({ ...order, validade_oleo: e.target.value })} placeholder="KM ou data" /></div>
+        <div><Label className="text-xs">Combustível chegada</Label><Input value={order.combustivel_chegada ?? ""} onChange={(e) => setOrder({ ...order, combustivel_chegada: e.target.value })} /></div>
+        <div><Label className="text-xs">Data entrada</Label><Input type="date" value={order.data_entrada ?? ""} onChange={(e) => setOrder({ ...order, data_entrada: e.target.value })} /></div>
+        <div><Label className="text-xs">Hora entrada</Label><Input type="time" value={order.hora_entrada ?? ""} onChange={(e) => setOrder({ ...order, hora_entrada: e.target.value })} /></div>
+        <div><Label className="text-xs">Data saída</Label><Input type="date" value={order.data_saida ?? ""} onChange={(e) => setOrder({ ...order, data_saida: e.target.value })} /></div>
+        <div><Label className="text-xs">Hora saída</Label><Input type="time" value={order.hora_saida ?? ""} onChange={(e) => setOrder({ ...order, hora_saida: e.target.value })} /></div>
+        <div className="md:col-span-3"><Label className="text-xs">Descrição da solução</Label><Textarea rows={3} value={order.solution_description ?? ""} onChange={(e) => setOrder({ ...order, solution_description: e.target.value })} /></div>
+        <div className="md:col-span-3"><Label className="text-xs">Itens trocados</Label><Textarea rows={2} value={order.items_replaced ?? ""} onChange={(e) => setOrder({ ...order, items_replaced: e.target.value })} /></div>
         <div className="md:col-span-3"><Label className="text-xs">Observações</Label><Textarea rows={3} value={order.observations} onChange={(e) => setOrder({ ...order, observations: e.target.value })} /></div>
       </Card>
 
