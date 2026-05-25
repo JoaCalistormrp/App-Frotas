@@ -125,12 +125,12 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const save = async () => {
     setBusy(true);
     try {
-      const payload: Record<string, unknown> = {
+      const payload = {
         status, solution_description: solution || null, items_replaced: items || null,
         km_atual: km ? Number(km) : null, validade_oleo: oleo || null,
         data_saida: dataSaida || null, hora_saida: horaSaida || null,
+        ...(status === "solucionado" ? { signed_at: new Date().toISOString() } : {}),
       };
-      if (status === "solucionado" && !order.signed_at_value) payload.signed_at = new Date().toISOString();
       const { error } = await supabase.from("maintenance_orders").update(payload).eq("id", order.id);
       if (error) throw error;
       toast.success("Atualizada");
