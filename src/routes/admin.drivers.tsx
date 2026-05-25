@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, X as XIcon, Upload, FileText } from "lucide-react";
+import { Users, X as XIcon, Upload, FileText, Camera, History, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/admin/drivers")({ component: DriversPage });
 
@@ -15,6 +15,7 @@ type Driver = {
   cnh_category: string | null; cnh_expires_at: string | null; cnh_file_url: string | null;
   cnh_photo_url: string | null; phone: string | null; company: string | null;
   base: string | null; role_function: string | null; unlock_card: string | null;
+  cnh_renewal_history?: Array<{ date: string; new_expiry: string | null; note?: string }> | null;
 };
 
 const FUNCTIONS = [
