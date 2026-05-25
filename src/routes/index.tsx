@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon } from "lucide-react";
+import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench } from "lucide-react";
 import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon, Users, Bell, Upload, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -71,15 +71,16 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, isMechanic, isAdmin, isViewer } = useAuth();
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <AuthScreen />;
+  if (isMechanic && !isAdmin && !isViewer) return <Navigate to="/mechanic" />;
   return <AppShell onSignOut={signOut} />;
 }
 
 function AuthScreen() {
   const { signIn, signUp, signInEmail } = useAuth();
-  const [tab, setTab] = useState<"driver" | "admin">("driver");
+  const [tab, setTab] = useState<"driver" | "admin" | "mechanic">("driver");
   const [mode, setMode] = useState<"in" | "up">("in");
   const [cpf, setCpf] = useState("");
   const [cnh, setCnh] = useState("");
@@ -91,7 +92,7 @@ function AuthScreen() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const r = tab === "admin"
+    const r = tab === "admin" || tab === "mechanic"
       ? await signInEmail(email, password)
       : mode === "in"
         ? await signIn(cpf, password)
@@ -111,14 +112,18 @@ function AuthScreen() {
             <p className="text-xs text-muted-foreground">Inspeção veicular digital</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg">
+        <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
           <button type="button" onClick={() => setTab("driver")}
-            className={`h-9 rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 transition ${tab === "driver" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
-            <UserIcon className="size-4" />Motorista
+            className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition ${tab === "driver" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
+            <UserIcon className="size-3.5" />Motorista
           </button>
           <button type="button" onClick={() => setTab("admin")}
-            className={`h-9 rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 transition ${tab === "admin" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
-            <ShieldCheck className="size-4" />Administrador
+            className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition ${tab === "admin" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
+            <ShieldCheck className="size-3.5" />Admin
+          </button>
+          <button type="button" onClick={() => setTab("mechanic")}
+            className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition ${tab === "mechanic" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
+            <Wrench className="size-3.5" />Mecânico
           </button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -130,10 +135,10 @@ function AuthScreen() {
           )}
           {tab === "driver"
             ? <div><Label>CPF</Label><Input value={cpf} onChange={(e) => setCpf(e.target.value)} required placeholder="000.000.000-00" /></div>
-            : <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="admin@empresa.com" /></div>}
+            : <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder={tab === "mechanic" ? "mecanico@empresa.com" : "admin@empresa.com"} /></div>}
           <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} /></div>
           <Button type="submit" className="w-full h-11 text-base" disabled={busy}>
-            {busy ? "..." : tab === "admin" ? "Entrar como admin" : mode === "in" ? "Entrar" : "Criar conta"}
+            {busy ? "..." : tab === "admin" ? "Entrar como admin" : tab === "mechanic" ? "Entrar como mecânico" : mode === "in" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
         {tab === "driver" && (
