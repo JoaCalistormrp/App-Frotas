@@ -90,7 +90,7 @@ function OrderForm() {
     cats.forEach((c, i) => {
       const x = 60 + i * 45;
       doc.rect(x, 32, 4, 4);
-      if (order.maintenance_category === c) { doc.setFillColor(0); doc.rect(x + 0.5, 32.5, 3, 3, "F"); }
+      if (order.maintenance_category === c) { doc.setFillColor(0, 0, 0); doc.rect(x + 0.5, 32.5, 3, 3, "F"); }
       doc.text(c.toUpperCase(), x + 6, 35.5);
     });
     // Tabela de dados
