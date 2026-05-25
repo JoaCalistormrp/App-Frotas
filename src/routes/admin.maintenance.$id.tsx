@@ -114,7 +114,7 @@ function OrderForm() {
       doc.setFont("helvetica", "bold"); doc.setFontSize(10);
       doc.setFillColor(30, 40, 80); doc.setTextColor(255);
       doc.rect(14, y, 182, 6, "F"); doc.text(title, 16, y + 4);
-      doc.setTextColor(0); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
       y += 6;
       doc.rect(14, y, 182, h);
       const lines = doc.splitTextToSize(content || "—", 178);
