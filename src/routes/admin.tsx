@@ -8,10 +8,10 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminLayout() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, isViewer, loading } = useAuth();
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <Navigate to="/" />;
-  if (!isAdmin) return <Navigate to="/" />;
+  if (!isAdmin && !isViewer) return <Navigate to="/" />;
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
