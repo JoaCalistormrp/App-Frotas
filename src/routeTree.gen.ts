@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MechanicRouteImport } from './routes/mechanic'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,11 @@ import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
 import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
 
+const MechanicRoute = MechanicRouteImport.update({
+  id: '/mechanic',
+  path: '/mechanic',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DownloadRoute = DownloadRouteImport.update({
   id: '/download',
   path: '/download',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/download': typeof DownloadRoute
+  '/mechanic': typeof MechanicRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
+  '/mechanic': typeof MechanicRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/download': typeof DownloadRoute
+  '/mechanic': typeof MechanicRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/download'
+    | '/mechanic'
     | '/admin/checklists'
     | '/admin/drivers'
     | '/admin/maintenance'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/download'
+    | '/mechanic'
     | '/admin/checklists'
     | '/admin/drivers'
     | '/admin/maintenance'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/download'
+    | '/mechanic'
     | '/admin/checklists'
     | '/admin/drivers'
     | '/admin/maintenance'
@@ -149,10 +161,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   DownloadRoute: typeof DownloadRoute
+  MechanicRoute: typeof MechanicRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/mechanic': {
+      id: '/mechanic'
+      path: '/mechanic'
+      fullPath: '/mechanic'
+      preLoaderRoute: typeof MechanicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/download': {
       id: '/download'
       path: '/download'
@@ -261,6 +281,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   DownloadRoute: DownloadRoute,
+  MechanicRoute: MechanicRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
