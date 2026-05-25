@@ -80,25 +80,57 @@ function OrderForm() {
     const doc = new jsPDF();
     const veh = vehicles.find((v) => v.id === order.vehicle_id);
     const drv = drivers.find((d) => d.id === order.driver_id);
-    await applyPdfBranding(doc, `${order.order_type} - ${orderNumber ?? "(nova)"}`, `Status: ${order.status}`);
-    autoTable(doc, {
-      startY: 36,
-      head: [["Campo", "Valor"]],
-      body: [
-        ["Número", orderNumber ?? "—"], ["Tipo", order.order_type], ["Base", order.base_code],
-        ["Data", new Date().toLocaleString("pt-BR")],
-        ["Veículo / Placa", veh?.plate ?? "—"], ["Motorista", drv?.full_name ?? "—"],
-        ["Descrição da falha", order.failure_description || "—"],
-        ["Tipo de manutenção", order.service_type || "—"], ["Oficina", order.workshop || "—"],
-        ["Observações", order.observations || "—"],
-      ],
-      styles: { fontSize: 9 }, headStyles: { fillColor: [30, 40, 80] },
+    const fullTitle = order.order_type === "SMI" ? "SOLICITAÇÃO DE MANUTENÇÃO INTERNA" : "SOLICITAÇÃO DE MANUTENÇÃO VEICULAR";
+    await applyPdfBranding(doc, `${order.order_type} — ${fullTitle}`, `Nº ${orderNumber ?? "(nova)"} • Status: ${order.status}`);
+    // Categoria
+    doc.setFontSize(10); doc.setFont("helvetica", "bold");
+    doc.text("TIPO DE MANUTENÇÃO:", 14, 36);
+    doc.setFont("helvetica", "normal");
+    const cats = ["corretiva", "preventiva", "planejada"] as const;
+    cats.forEach((c, i) => {
+      const x = 60 + i * 45;
+      doc.rect(x, 32, 4, 4);
+      if (order.maintenance_category === c) { doc.setFillColor(0); doc.rect(x + 0.5, 32.5, 3, 3, "F"); }
+      doc.text(c.toUpperCase(), x + 6, 35.5);
     });
-    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+    // Tabela de dados
+    autoTable(doc, {
+      startY: 42,
+      head: [["DADOS", "", "DADOS", ""]],
+      body: [
+        ["Placa", veh?.plate ?? "—", "Nº OS", orderNumber ?? "—"],
+        ["Modelo do carro", order.mod_carro || veh?.plate || "—", "Validade do óleo", order.validade_oleo || "—"],
+        ["KM atual", order.km_atual?.toString() ?? "—", "Combustível chegada", order.combustivel_chegada || "—"],
+        ["Data entrada", order.data_entrada || "—", "Hora entrada", order.hora_entrada || "—"],
+        ["Data saída", order.data_saida || "—", "Hora saída", order.hora_saida || "—"],
+        ["Motorista", drv?.full_name ?? "—", "Oficina", order.workshop || "—"],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 40, 80], textColor: 255 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 38 }, 2: { fontStyle: "bold", cellWidth: 38 } },
+    });
+    let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+    const section = (title: string, content: string, h: number) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+      doc.setFillColor(30, 40, 80); doc.setTextColor(255);
+      doc.rect(14, y, 182, 6, "F"); doc.text(title, 16, y + 4);
+      doc.setTextColor(0); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      y += 6;
+      doc.rect(14, y, 182, h);
+      const lines = doc.splitTextToSize(content || "—", 178);
+      doc.text(lines, 16, y + 5);
+      y += h + 4;
+    };
+    section("DESCRIÇÃO DO PROBLEMA", order.failure_description, 36);
+    section("DESCRIÇÃO DA SOLUÇÃO", order.solution_description ?? "", 36);
+    section("ITENS TROCADOS", order.items_replaced ?? "", 20);
+    if (order.observations) section("OBSERVAÇÕES", order.observations, 16);
+    // Assinaturas
+    y += 10;
     doc.setFontSize(9);
-    doc.line(20, finalY, 90, finalY); doc.text("Assinatura do mecânico", 30, finalY + 5);
-    doc.line(120, finalY, 190, finalY); doc.text("Assinatura do responsável", 130, finalY + 5);
-    doc.text(`Data: ____ / ____ / ________`, 20, finalY + 20);
+    doc.line(20, y, 90, y); doc.text("Assinatura do mecânico", 30, y + 5);
+    doc.line(120, y, 190, y); doc.text("Assinatura do responsável", 130, y + 5);
+    doc.text(`Data: ____ / ____ / ________`, 20, y + 15);
     doc.save(`${order.order_type}_${orderNumber ?? "nova"}.pdf`);
   };
 
