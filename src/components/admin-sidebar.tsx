@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck, UserCog } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -13,6 +13,7 @@ const items = [
   { title: "Veículos", url: "/admin/vehicles", icon: Truck },
   { title: "Motoristas", url: "/admin/drivers", icon: Users },
   { title: "SMV / SMI", url: "/admin/maintenance", icon: Wrench },
+  { title: "Equipe / Acessos", url: "/admin/team", icon: UserCog, adminOnly: true },
 ];
 
 export function AdminSidebar() {
@@ -20,6 +21,7 @@ export function AdminSidebar() {
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { signOut, user } = useAuth();
+  const { isAdmin } = useAuth();
   const isActive = (url: string, exact?: boolean) => exact ? path === url : path === url || path.startsWith(url + "/");
   return (
     <Sidebar collapsible="icon">
@@ -39,7 +41,7 @@ export function AdminSidebar() {
           <SidebarGroupLabel>Gestão</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((it) => (
+              {items.filter((it) => !it.adminOnly || isAdmin).map((it) => (
                 <SidebarMenuItem key={it.url}>
                   <SidebarMenuButton asChild isActive={isActive(it.url, it.exact)}>
                     <Link to={it.url} className="flex items-center gap-2">
