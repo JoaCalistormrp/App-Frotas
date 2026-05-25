@@ -20,6 +20,10 @@ type Order = {
   vehicle_id: string | null; driver_id: string | null; checklist_id: string | null;
   failure_description: string; service_type: string; workshop: string;
   status: "pendente" | "em_manutencao" | "solucionado"; observations: string;
+  maintenance_category?: string; validade_oleo?: string; km_atual?: number | null;
+  combustivel_chegada?: string; data_entrada?: string; hora_entrada?: string;
+  data_saida?: string; hora_saida?: string; mod_carro?: string;
+  solution_description?: string; items_replaced?: string;
 };
 
 function OrderForm() {
@@ -30,6 +34,9 @@ function OrderForm() {
   const [order, setOrder] = useState<Order>({
     order_type: "SMI", base_code: "VOT", vehicle_id: null, driver_id: null, checklist_id: null,
     failure_description: "", service_type: "", workshop: "", status: "pendente", observations: "",
+    maintenance_category: "corretiva", validade_oleo: "", km_atual: null,
+    combustivel_chegada: "", data_entrada: "", hora_entrada: "",
+    data_saida: "", hora_saida: "", mod_carro: "", solution_description: "", items_replaced: "",
   });
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Array<{ id: string; plate: string }>>([]);
