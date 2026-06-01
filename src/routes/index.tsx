@@ -152,6 +152,9 @@ function AuthScreen() {
           </Link>
         </div>
       </Card>
+      <div className="fixed bottom-2 left-0 right-0 text-center text-[11px] text-muted-foreground">
+        Desenvolvido por Julia Ramos
+      </div>
     </div>
   );
 }
