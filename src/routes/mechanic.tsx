@@ -33,22 +33,12 @@ function MechanicPage() {
   const [editing, setEditing] = useState<Order | null>(null);
 
   const load = async () => {
-    let q = supabase
-      .from("maintenance_orders")
-      .select("*, vehicles(plate, model)")
-      .order("created_at", { ascending: false });
+    let q = supabase.from("maintenance_orders").select("*, vehicles(plate, model), profiles!maintenance_orders_driver_id_fkey(full_name)").order("created_at", { ascending: false });
     if (statusFilter === "abertos") q = q.in("status", ["pendente", "em_manutencao"]);
     else if (statusFilter !== "todos") q = q.eq("status", statusFilter);
     const { data, error } = await q;
-    if (error) { toast.error(error.message); return; }
-    const rows = (data ?? []) as unknown as Order[];
-    const driverIds = Array.from(new Set(rows.map((r) => (r as { driver_id?: string | null }).driver_id).filter(Boolean) as string[]));
-    let nameById: Record<string, string> = {};
-    if (driverIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", driverIds);
-      nameById = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name ?? "—"]));
-    }
-    setOrders(rows.map((r) => ({ ...r, profiles: { full_name: nameById[(r as { driver_id?: string | null }).driver_id ?? ""] ?? null } })));
+    if (error) toast.error(error.message);
+    setOrders((data ?? []) as never);
   };
   useEffect(() => { if (user && (isMechanic || isAdmin)) load(); /* eslint-disable-next-line */ }, [user, isMechanic, isAdmin, statusFilter]);
 
@@ -108,9 +98,6 @@ function MechanicPage() {
       </main>
 
       {editing && <OrderModal order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
-      <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground">
-        Desenvolvido por Julia Ramos
-      </footer>
     </div>
   );
 }

@@ -1,99 +1,65 @@
-# Reestruturação Tomaz Checklist — Plano em 4 Entregas
+# Reestruturação da Área Administrativa
 
-O pedido cobre frontend, backend, banco, permissões e UX de praticamente todos os módulos. Para entregar com qualidade (e sem quebrar o que já funciona), vou dividir em 4 entregas. Cada uma é validável de forma independente.
+Vou transformar a área admin atual (que está toda em `src/routes/index.tsx`) num **hub administrativo modular**, com rotas separadas, navegação por cards/menu lateral, e novos módulos (SMV/SMI, veículos completos, motoristas completos, histórico geral).
 
----
-
-## Entrega 1 — Correções críticas (PRIORIDADE MÁXIMA)
-
-**Foco: destravar SMI/SMV e estabilizar navegação/autenticação.**
-
-1. **Bug SMI/SMV não abre**
-   - Investigar `/admin/maintenance` e `/admin/maintenance/$id` (route tree, RLS, casts incorretos do supabase em `admin.maintenance.tsx`).
-   - Remover os `as never as ...` que estão escondendo erros de tipo e podem estar quebrando a query.
-   - Garantir que `Link to="/admin/maintenance/$id" params={{ id: "new" }}` resolva corretamente (a rota usa `$id`, então "new" precisa ser tratado no componente).
-   - Validar RLS em `maintenance_orders` para admin/mechanic.
-   - Validar bucket `maintenance-signatures` e upload.
-
-2. **Estabilidade geral**
-   - Auth: revisar `auth.tsx` (race condition entre `getSession` e `onAuthStateChange`, roles carregando depois do render).
-   - Loading states corretos (sem tela branca / infinite spinner) em rotas admin/mechanic.
-   - Sidebar: verificar links quebrados, conflito de perfis.
-   - Corrigir tela branca/erros de sessão reportados.
-
-3. **Rodapé com crédito**
-   - "Desenvolvido por Julia Ramos" em todas as áreas.
-
-**Entregável:** SMI/SMV abrindo, criando, editando e fechando ordens. Login estável para todos os perfis.
+Como o escopo é muito grande, proponho dividir em **3 entregas** para manter qualidade e permitir validação a cada passo. Confirme qual ordem prefere ou aprove o pacote completo.
 
 ---
 
-## Entrega 2 — Perfil Mecânico (independente do Motorista)
+## ENTREGA 1 — Fundação + Dashboard + Histórico + Veículos
 
-1. **Migração:**
-   - `profiles.terminated_at`, `profiles.terminated_by`, `profiles.termination_reason` (baixa de motorista).
-   - Trigger/RLS para bloquear login de motorista desligado.
-   - Mecânico passa a ter perfil próprio (não cria registro em motoristas; trigger `handle_new_user` ajustado).
-   - `maintenance_orders`: adicionar `started_at`, `finished_at`, ampliar enum de status para `aberta | em_andamento | aguardando_peca | finalizada`.
+### 1.1 Banco de dados (migração)
+- Adicionar em `vehicles`: `brand`, `year`, `renavam`, `category` (enum: `pesado` | `operacional` | `administrativo`), `mileage`, `fuel_type`, `document_url`.
+- Adicionar em `profiles`: `base`, `role_function` (enum: `diretor` | `administrativo` | `encarregado` | `motorista`), `unlock_card`, `cnh_photo_url`, `cnh_renewal_history` (jsonb).
+- Criar tabela `maintenance_orders` (SMV/SMI):
+  - `id`, `order_number` (texto, ex: `OS01_VOT`), `order_type` (`SMI` | `SMV`), `base_code` (`VOT`/`SRQ`/`CDA`/`TDS`/`PLN`/`MDC`/`PRB`/`ITR`/`FZD`/`OBRA`), `checklist_id` (FK), `vehicle_id`, `driver_id`, `failure_description`, `maintenance_type`, `workshop`, `status` (`pendente` | `em_manutencao` | `solucionado`), `observations`, `mechanic_signature_url`, `responsible_signature_url`, `signed_at`, `created_at`, `updated_at`.
+  - RLS: admin total; criador pode ler.
+  - Função/sequência para gerar `order_number` por base.
+- Adicionar em `checklist_responses`: `resolution_status` (`pendente` | `em_manutencao` | `solucionado`).
+- Bucket privado `vehicle-docs` e `maintenance-signatures`.
 
-2. **Painel do mecânico (`/mechanic`) reformulado:**
-   - Checklists do dia + histórico com filtros (data, placa, motorista, status).
-   - Ordens: criar, editar, atualizar status, observações técnicas, anexar fotos, timestamps automáticos.
-   - Histórico do veículo com falhas recorrentes.
-   - Sem acesso a cadastros administrativos.
+### 1.2 Rotas novas (TanStack)
+Reorganizar `src/routes/`:
+- `_admin.tsx` — layout admin com sidebar (Sidebar do shadcn) e guard de role.
+- `_admin/index.tsx` — **Dashboard** (cards de navegação, alertas CNH, falhas do dia, checklists do dia).
+- `_admin/checklists.tsx` — **Histórico Geral** com filtros (data, veículo, motorista, base, categoria, status, falhas).
+- `_admin/vehicles.tsx` — gestão de veículos (CRUD, upload doc, categorias, filtros).
+- `_admin/drivers.tsx` — gestão de motoristas (mover de index.tsx; já existe parcialmente).
+- `_admin/maintenance.tsx` — lista de SMV/SMI.
+- `_admin/maintenance.$id.tsx` — formulário de SMV/SMI (criar/editar/imprimir/PDF).
 
-3. **Cadastro independente de mecânico** (na aba Equipe do admin) — sem vínculo com tabela de motoristas.
-
----
-
-## Entrega 3 — Perfil Consulta + Dashboard Executivo
-
-1. **Área `/viewer` (ou reaproveitando `/admin` com guard de leitura):**
-   - Layout dedicado read-only.
-   - Consultas: checklists do dia, histórico, ordens, veículos, motoristas.
-   - Timeline da manutenção (quem abriu, quem concluiu, datas, observações).
-   - Filtros: placa, frota, mecânico, status, data, tipo.
-   - Bloquear todos os botões de edição/exclusão no frontend e validar no backend (RLS).
-
-2. **Dashboard executivo no `/admin`:**
-   - Cards: veículos parados, manutenções em aberto, checklists pendentes, falhas recorrentes, top veículos com manutenção, indisponíveis, CNHs vencendo.
-   - Exportação de relatórios.
+### 1.3 Página inicial (motorista)
+- `routes/index.tsx` continua sendo o app do motorista (checklist). Admins logados são redirecionados para `/admin`.
 
 ---
 
-## Entrega 4 — Cadastro de Condutores + Alertas CNH + Baixa
-
-1. **Nova interface dedicada de condutores** (`/admin/drivers` reformulada):
-   - Tela inicial enxuta: botão de acesso, contagem de ativos/inativos, alertas CNH.
-   - Cadastro completo (nome, CPF, telefone, empresa, cargo, admissão, CNH, categoria, validade).
-   - Foto da CNH usada como foto do perfil (visível apenas para admin).
-   - Filtros e exportação de relatórios.
-
-2. **Sistema de alertas CNH automático:**
-   - Migração: view/função SQL que calcula faixa (90/60/30/vencida).
-   - Notificações no dashboard e em uma nova aba de notificações.
-   - (Opcional) cron diário via `/api/public/cron/cnh-alerts`.
-
-3. **Baixa de motoristas:**
-   - Botão "Desligar motorista" com motivo.
-   - Registro automático de data/hora/responsável.
-   - Bloqueio de login para desligados, mas histórico preservado.
-   - Botão de excluir (admin) com confirmação dupla.
+## ENTREGA 2 — Módulo SMV/SMI completo
+- Formulário de SMV/SMI com todos os campos solicitados.
+- Geração automática de `order_number` (`OS{N}_{BASE}`) via função SQL.
+- Vincular ao checklist que originou a falha.
+- Botão "SOLUCIONADO" no checklist abre form de SMI/SMV pré-preenchido.
+- Export PDF (usando `jsPDF` + logo da empresa) e Excel (usando `xlsx`).
+- Layout profissional com campos de assinatura (mecânico + responsável + data).
 
 ---
 
-## Detalhes técnicos relevantes
-
-- **Banco:** migrações novas, sem reescrever as antigas. Cada migração inclui GRANTs + RLS.
-- **Permissões:** `has_role(uid, role)` (já existe) usado em todos os policies. Frontend usa guards em `admin.tsx` + novos guards em `mechanic.tsx` / `viewer.tsx`.
-- **Performance:** queries com `select` específico (não `*`), índices em `created_at`, `vehicle_id`, `driver_id`, `status`. Realtime ativado apenas onde necessário.
-- **Quebra de arquivos grandes:** `admin.drivers.tsx` e `admin.maintenance.$id.tsx` serão divididos em componentes em `src/components/admin/`.
-- **Stack mantida:** TanStack Start, Supabase via `createServerFn` quando precisar de service role, shadcn/ui.
+## ENTREGA 3 — Refinamentos
+- Histórico de renovação de CNH (timeline na ficha do motorista).
+- Histórico de checklists na ficha do motorista.
+- Filtros avançados de motoristas (base, função, CNH vencida/a vencer).
+- Perfis administrativos com permissão para emitir relatórios (nova role `report_viewer` ou similar).
+- Polimento visual final, responsividade mobile.
 
 ---
 
-## Pergunta antes de começar
+## Detalhes técnicos
+- **Stack:** TanStack Start (rotas em `src/routes/`), Supabase, shadcn/ui.
+- **Sidebar:** `components/ui/sidebar` (já disponível) com ícones lucide.
+- **PDF:** `jspdf` + `jspdf-autotable` (pacotes a instalar).
+- **Excel:** `xlsx` (a instalar).
+- **Code organization:** extrair componentes grandes de `src/routes/index.tsx` para `src/components/admin/*`.
 
-Posso seguir direto com a **Entrega 1** (que destrava SMI/SMV e estabiliza o sistema) e depois cada entrega seguinte requer sua aprovação? Ou prefere que eu rode **as 4 entregas em sequência sem pausar**?
+---
 
-Recomendo começar pela Entrega 1 e validar antes de prosseguir — assim você consegue testar o módulo crítico imediatamente.
+## Pergunta para você
+Posso prosseguir com a **Entrega 1** (fundação, migração, dashboard, histórico, veículos) agora? Ou prefere que eu faça **as três entregas em sequência sem pausa** (vai demorar mais, mas entrega tudo)?

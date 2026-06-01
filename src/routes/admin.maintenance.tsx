@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wrench, Plus } from "lucide-react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/maintenance")({ component: MaintenancePage });
 
@@ -20,13 +19,9 @@ function MaintenancePage() {
 
   useEffect(() => { (async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("maintenance_orders")
-      .select("id, order_number, order_type, base_code, status, failure_description, workshop, created_at, vehicle_id")
-      .order("created_at", { ascending: false });
-    if (error) toast.error("Erro ao carregar ordens: " + error.message);
-    setList((data ?? []) as Order[]);
-    setLoading(false);
+    const { data } = await (supabase.from as never as (t: string) => { select: (s: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: Order[] | null }> } })("maintenance_orders")
+      .select("*").order("created_at", { ascending: false });
+    setList((data ?? []) as Order[]); setLoading(false);
   })(); }, []);
 
   const tone = (s: string) => s === "solucionado" ? "text-green-600" : s === "em_manutencao" ? "text-amber-600" : "text-destructive";

@@ -24,9 +24,6 @@ function AdminLayout() {
           <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
             <Outlet />
           </main>
-          <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground">
-            Desenvolvido por Julia Ramos
-          </footer>
         </div>
       </div>
     </SidebarProvider>
