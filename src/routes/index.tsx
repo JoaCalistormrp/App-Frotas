@@ -219,6 +219,9 @@ function AppShell({ onSignOut }: { onSignOut: () => void }) {
       </main>
 
       {showAddVehicle && <AddVehicleModal onClose={() => { setShowAddVehicle(false); load(); }} />}
+      <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground mt-8">
+        Desenvolvido por Julia Ramos
+      </footer>
     </div>
   );
 }
