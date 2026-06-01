@@ -48,27 +48,39 @@ function OrderForm() {
       supabase.from("vehicles").select("id, plate").order("plate"),
       supabase.from("profiles").select("id, full_name").order("full_name"),
     ]);
-    setVehicles((vs ?? []) as never); setDrivers((ds ?? []) as never);
+    setVehicles((vs ?? []) as Array<{ id: string; plate: string }>);
+    setDrivers((ds ?? []) as Array<{ id: string; full_name: string | null }>);
     if (!isNew) {
-      const { data } = await (supabase.from as never as (t: string) => { select: (s: string) => { eq: (c: string, v: string) => { single: () => Promise<{ data: Order & { order_number: string } | null }> } } })("maintenance_orders").select("*").eq("id", id).single();
-      if (data) { setOrder(data as Order); setOrderNumber(data.order_number); }
+      const { data, error } = await supabase
+        .from("maintenance_orders")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) { toast.error("Erro ao carregar ordem: " + error.message); return; }
+      if (data) { setOrder(data as unknown as Order); setOrderNumber(data.order_number); }
     }
   })(); }, [id, isNew]);
 
   const save = async () => {
     setBusy(true);
     try {
-      const t = supabase.from as never as (t: string) => { insert: (p: object) => { select: (s: string) => { single: () => Promise<{ data: { id: string; order_number: string } | null; error: { message: string } | null }> } }; update: (p: object) => { eq: (c: string, v: string) => Promise<{ error: { message: string } | null }> } };
       if (isNew) {
-        const { data: num, error: ne } = await supabase.rpc("next_order_number", { _base: order.base_code }) as never as { data: string | null; error: { message: string } | null };
+        const { data: num, error: ne } = await supabase.rpc("next_order_number", { _base: order.base_code });
         if (ne) throw new Error(ne.message);
-        const payload = { ...order, order_number: num, created_by: user?.id };
-        const { data, error } = await t("maintenance_orders").insert(payload).select("id, order_number").single();
+        const payload = { ...order, order_number: num as string, created_by: user?.id ?? null };
+        const { data, error } = await supabase
+          .from("maintenance_orders")
+          .insert(payload as never)
+          .select("id, order_number")
+          .single();
         if (error) throw new Error(error.message);
         toast.success(`Ordem ${data?.order_number} criada`);
         if (data?.id) nav({ to: "/admin/maintenance/$id", params: { id: data.id } });
       } else {
-        const { error } = await t("maintenance_orders").update(order).eq("id", id);
+        const { error } = await supabase
+          .from("maintenance_orders")
+          .update(order as never)
+          .eq("id", id);
         if (error) throw new Error(error.message);
         toast.success("Atualizada");
       }
