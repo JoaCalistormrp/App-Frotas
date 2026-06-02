@@ -19,10 +19,6 @@ function MaintenancePage() {
   const [list, setList] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  if (path.startsWith("/admin/maintenance/") && path !== "/admin/maintenance/") {
-    return <Outlet />;
-  }
-
   useEffect(() => { (async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -33,6 +29,10 @@ function MaintenancePage() {
     setList((data ?? []) as Order[]);
     setLoading(false);
   })(); }, []);
+
+  if (path.startsWith("/admin/maintenance/") && path !== "/admin/maintenance/") {
+    return <Outlet />;
+  }
 
   const tone = (s: string) => s === "solucionado" ? "text-green-600" : s === "em_manutencao" ? "text-amber-600" : "text-destructive";
 
