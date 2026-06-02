@@ -31,6 +31,7 @@ function MechanicPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<"abertos" | "pendente" | "em_manutencao" | "solucionado" | "todos">("abertos");
   const [editing, setEditing] = useState<Order | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const load = async () => {
     let q = supabase
@@ -84,6 +85,9 @@ function MechanicPage() {
               <Icon className="size-3" />{l}
             </Button>
           ))}
+          <div className="ml-auto">
+            <Button size="sm" onClick={() => setCreating(true)}>+ Nova OS</Button>
+          </div>
         </Card>
 
         <div className="space-y-2">
@@ -108,6 +112,7 @@ function MechanicPage() {
       </main>
 
       {editing && <OrderModal order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {creating && <NewOrderModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
       <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground">
         Desenvolvido por Julia Ramos
       </footer>
