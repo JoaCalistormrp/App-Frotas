@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -15,8 +15,13 @@ type Order = {
 };
 
 function MaintenancePage() {
+  const path = useRouterState({ select: (state) => state.location.pathname });
   const [list, setList] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+
+  if (path.startsWith("/admin/maintenance/") && path !== "/admin/maintenance/") {
+    return <Outlet />;
+  }
 
   useEffect(() => { (async () => {
     setLoading(true);
