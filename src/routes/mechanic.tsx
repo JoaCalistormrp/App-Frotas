@@ -45,7 +45,7 @@ function MechanicPage() {
     const driverIds = Array.from(new Set(rows.map((r) => (r as { driver_id?: string | null }).driver_id).filter(Boolean) as string[]));
     let nameById: Record<string, string> = {};
     if (driverIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", driverIds);
+      const { data: profs } = await supabase.from("drivers_directory").select("id, full_name").in("id", driverIds);
       nameById = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name ?? "—"]));
     }
     setOrders(rows.map((r) => ({ ...r, profiles: { full_name: nameById[(r as { driver_id?: string | null }).driver_id ?? ""] ?? null } })));
