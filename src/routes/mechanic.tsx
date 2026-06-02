@@ -31,6 +31,7 @@ function MechanicPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<"abertos" | "pendente" | "em_manutencao" | "solucionado" | "todos">("abertos");
   const [editing, setEditing] = useState<Order | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const load = async () => {
     let q = supabase
@@ -84,6 +85,9 @@ function MechanicPage() {
               <Icon className="size-3" />{l}
             </Button>
           ))}
+          <div className="ml-auto">
+            <Button size="sm" onClick={() => setCreating(true)}>+ Nova OS</Button>
+          </div>
         </Card>
 
         <div className="space-y-2">
@@ -108,6 +112,7 @@ function MechanicPage() {
       </main>
 
       {editing && <OrderModal order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {creating && <NewOrderModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
       <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground">
         Desenvolvido por Julia Ramos
       </footer>
@@ -184,6 +189,99 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
         <div className="flex gap-2 pt-2">
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
           <Button className="flex-1" onClick={save} disabled={busy}>{busy ? "..." : status === "solucionado" ? "Dar baixa" : "Salvar"}</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+type VehicleOpt = { id: string; plate: string | null; model: string | null; base: string | null };
+
+function NewOrderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user } = useAuth();
+  const [vehicles, setVehicles] = useState<VehicleOpt[]>([]);
+  const [vehicleId, setVehicleId] = useState("");
+  const [orderType, setOrderType] = useState<"SMI" | "SMV">("SMI");
+  const [base, setBase] = useState("");
+  const [failure, setFailure] = useState("");
+  const [serviceType, setServiceType] = useState("");
+  const [workshop, setWorkshop] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.from("vehicles").select("id, plate, model, base").eq("active", true).order("plate").then(({ data }) => {
+      setVehicles((data ?? []) as VehicleOpt[]);
+    });
+  }, []);
+
+  const create = async () => {
+    if (!vehicleId) { toast.error("Selecione um veículo"); return; }
+    const v = vehicles.find((x) => x.id === vehicleId);
+    const baseCode = (base || v?.base || "GERAL").trim().toUpperCase();
+    if (!failure.trim()) { toast.error("Descreva a falha"); return; }
+    setBusy(true);
+    try {
+      const { data: numData, error: numErr } = await supabase.rpc("next_order_number", { _base: baseCode });
+      if (numErr) throw numErr;
+      const orderNumber = numData as unknown as string;
+      const { error } = await supabase.from("maintenance_orders").insert({
+        order_number: orderNumber,
+        order_type: orderType,
+        base_code: baseCode,
+        vehicle_id: vehicleId,
+        failure_description: failure,
+        service_type: serviceType || null,
+        workshop: workshop || null,
+        status: "pendente",
+        created_by: user?.id ?? null,
+      });
+      if (error) throw error;
+      toast.success(`OS ${orderNumber} aberta`);
+      onCreated();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4" onClick={onClose}>
+      <Card className="w-full max-w-xl p-5 space-y-3 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-lg flex items-center gap-2"><Wrench className="size-5" />Nova Ordem de Serviço</h3>
+          <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">Tipo</Label>
+            <select value={orderType} onChange={(e) => setOrderType(e.target.value as "SMI" | "SMV")} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="SMI">SMI — Interna</option>
+              <option value="SMV">SMV — Veicular</option>
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Base</Label>
+            <Input value={base} onChange={(e) => setBase(e.target.value)} placeholder="Ex: SLZ" />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Veículo</Label>
+          <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+            <option value="">Selecione…</option>
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>{v.plate} {v.model ? `— ${v.model}` : ""} {v.base ? `(${v.base})` : ""}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs">Descrição da falha</Label>
+          <Textarea rows={4} value={failure} onChange={(e) => setFailure(e.target.value)} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><Label className="text-xs">Tipo de serviço</Label><Input value={serviceType} onChange={(e) => setServiceType(e.target.value)} /></div>
+          <div><Label className="text-xs">Oficina</Label><Input value={workshop} onChange={(e) => setWorkshop(e.target.value)} /></div>
+        </div>
+        <div className="flex gap-2 pt-2">
+          <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+          <Button className="flex-1" onClick={create} disabled={busy}>{busy ? "..." : "Abrir OS"}</Button>
         </div>
       </Card>
     </div>
