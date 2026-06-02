@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "mechanic read driver context" ON public.profiles;
