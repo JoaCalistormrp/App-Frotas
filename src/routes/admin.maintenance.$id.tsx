@@ -237,6 +237,28 @@ function OrderForm() {
           <p className="text-xs text-muted-foreground">As assinaturas (mecânico e responsável) aparecem no PDF gerado, com campo de data ao final do documento.</p>
         </Card>
       )}
+
+      {!isNew && (
+        <Card className="p-5">
+          <div className="font-semibold mb-3">Evolução da manutenção</div>
+          {evolutions.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Nenhuma atualização registrada ainda. O mecânico pode adicionar entradas pelo painel próprio.</div>
+          ) : (
+            <div className="space-y-2">
+              {evolutions.map((e) => (
+                <div key={e.id} className="text-sm p-3 bg-muted/40 rounded">
+                  <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                    <span>{new Date(e.created_at).toLocaleString("pt-BR")}</span>
+                    <span className={`px-2 py-0.5 rounded ${statusTone(e.status ?? "")}`}>{statusLabel(e.status ?? "—")}</span>
+                  </div>
+                  <div className="font-medium mt-1">{e.user_name ?? "—"}</div>
+                  <div className="text-sm whitespace-pre-line">{e.observation}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
