@@ -225,6 +225,55 @@ export type Database = {
           },
         ]
       }
+      maintenance_evolutions: {
+        Row: {
+          created_at: string
+          id: string
+          observation: string
+          order_id: string
+          status: Database["public"]["Enums"]["maintenance_status"] | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          observation: string
+          order_id: string
+          status?: Database["public"]["Enums"]["maintenance_status"] | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          observation?: string
+          order_id?: string
+          status?: Database["public"]["Enums"]["maintenance_status"] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_evolutions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_evolutions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_evolutions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_order_counters: {
         Row: {
           base_code: string
@@ -251,17 +300,24 @@ export type Database = {
           data_saida: string | null
           driver_id: string | null
           failure_description: string | null
+          final_observation: string | null
           hora_entrada: string | null
           hora_saida: string | null
           id: string
           items_replaced: string | null
           km_atual: number | null
+          labor_cost: number | null
+          labor_description: string | null
+          labor_hours: number | null
           maintenance_category: string | null
           mechanic_signature_url: string | null
           mod_carro: string | null
           observations: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["maintenance_type"]
+          parts_cost: number | null
+          parts_needed: string | null
+          parts_supplier: string | null
           response_id: string | null
           responsible_signature_url: string | null
           service_type: string | null
@@ -283,17 +339,24 @@ export type Database = {
           data_saida?: string | null
           driver_id?: string | null
           failure_description?: string | null
+          final_observation?: string | null
           hora_entrada?: string | null
           hora_saida?: string | null
           id?: string
           items_replaced?: string | null
           km_atual?: number | null
+          labor_cost?: number | null
+          labor_description?: string | null
+          labor_hours?: number | null
           maintenance_category?: string | null
           mechanic_signature_url?: string | null
           mod_carro?: string | null
           observations?: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["maintenance_type"]
+          parts_cost?: number | null
+          parts_needed?: string | null
+          parts_supplier?: string | null
           response_id?: string | null
           responsible_signature_url?: string | null
           service_type?: string | null
@@ -315,17 +378,24 @@ export type Database = {
           data_saida?: string | null
           driver_id?: string | null
           failure_description?: string | null
+          final_observation?: string | null
           hora_entrada?: string | null
           hora_saida?: string | null
           id?: string
           items_replaced?: string | null
           km_atual?: number | null
+          labor_cost?: number | null
+          labor_description?: string | null
+          labor_hours?: number | null
           maintenance_category?: string | null
           mechanic_signature_url?: string | null
           mod_carro?: string | null
           observations?: string | null
           order_number?: string
           order_type?: Database["public"]["Enums"]["maintenance_type"]
+          parts_cost?: number | null
+          parts_needed?: string | null
+          parts_supplier?: string | null
           response_id?: string | null
           responsible_signature_url?: string | null
           service_type?: string | null
@@ -560,7 +630,20 @@ export type Database = {
         | "administrativo"
         | "encarregado"
         | "motorista"
-      maintenance_status: "pendente" | "em_manutencao" | "solucionado"
+      maintenance_status:
+        | "pendente"
+        | "em_manutencao"
+        | "solucionado"
+        | "aberta"
+        | "em_analise"
+        | "orcando_mao_obra"
+        | "orcando_pecas"
+        | "aguardando_aprovacao"
+        | "aguardando_pecas"
+        | "em_execucao"
+        | "teste_final"
+        | "finalizada"
+        | "cancelada"
       maintenance_type: "SMI" | "SMV"
       response_status: "OK" | "NAO_OK" | "NA"
       vehicle_category: "pesado" | "operacional" | "administrativo"
@@ -705,7 +788,21 @@ export const Constants = {
         "encarregado",
         "motorista",
       ],
-      maintenance_status: ["pendente", "em_manutencao", "solucionado"],
+      maintenance_status: [
+        "pendente",
+        "em_manutencao",
+        "solucionado",
+        "aberta",
+        "em_analise",
+        "orcando_mao_obra",
+        "orcando_pecas",
+        "aguardando_aprovacao",
+        "aguardando_pecas",
+        "em_execucao",
+        "teste_final",
+        "finalizada",
+        "cancelada",
+      ],
       maintenance_type: ["SMI", "SMV"],
       response_status: ["OK", "NAO_OK", "NA"],
       vehicle_category: ["pesado", "operacional", "administrativo"],
