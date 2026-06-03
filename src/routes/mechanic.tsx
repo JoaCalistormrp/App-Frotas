@@ -142,7 +142,7 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const [laborCost, setLaborCost] = useState(order.labor_cost?.toString() ?? "");
   const [partsNeeded, setPartsNeeded] = useState(order.parts_needed ?? "");
   const [partsSupplier, setPartsSupplier] = useState(order.parts_supplier ?? "");
-  const [partsCost, setPartsCost] = useState(order.parts_cost ?? "");
+  const [partsCost, setPartsCost] = useState<string>(order.parts_cost?.toString() ?? "");
   const [finalObs, setFinalObs] = useState(order.final_observation ?? "");
   const [evoNote, setEvoNote] = useState("");
   const [evolutions, setEvolutions] = useState<Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null; user_name?: string | null }>>([]);
@@ -248,7 +248,7 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
             <div><Label className="text-xs">Peças necessárias / quantidade</Label><Textarea rows={2} value={partsNeeded} onChange={(e) => setPartsNeeded(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label className="text-xs">Fornecedor</Label><Input value={partsSupplier} onChange={(e) => setPartsSupplier(e.target.value)} /></div>
-              <div><Label className="text-xs">Valor estimado (R$)</Label><Input type="number" step="0.01" value={partsCost as string} onChange={(e) => setPartsCost(e.target.value)} /></div>
+              <div><Label className="text-xs">Valor estimado (R$)</Label><Input type="number" step="0.01" value={partsCost} onChange={(e) => setPartsCost(e.target.value)} /></div>
             </div>
           </Card>
         )}
