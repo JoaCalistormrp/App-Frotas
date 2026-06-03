@@ -10,18 +10,22 @@ import { toast } from "sonner";
 import { Wrench, LogOut, CheckCircle2, Clock, AlertCircle, X as XIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
+import { STATUS_OPTIONS, statusLabel, statusTone, NEEDS_LABOR_BUDGET, NEEDS_PARTS_BUDGET, IS_DONE_STATUS, type MaintenanceStatus } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/mechanic")({ component: MechanicPage });
 
 type Order = {
   id: string; order_number: string; order_type: "SMI" | "SMV"; base_code: string;
-  status: "pendente" | "em_manutencao" | "solucionado";
+  status: MaintenanceStatus;
   failure_description: string | null; service_type: string | null; workshop: string | null;
   solution_description: string | null; items_replaced: string | null;
   km_atual: number | null; validade_oleo: string | null; mod_carro: string | null;
   data_entrada: string | null; hora_entrada: string | null;
   data_saida: string | null; hora_saida: string | null;
   maintenance_category: string | null;
+  labor_description?: string | null; labor_hours?: number | null; labor_cost?: number | null;
+  parts_needed?: string | null; parts_supplier?: string | null; parts_cost?: number | null;
+  final_observation?: string | null;
   vehicles?: { plate: string | null; model: string | null } | null;
   profiles?: { full_name: string | null } | null;
 };
@@ -121,16 +125,11 @@ function MechanicPage() {
 }
 
 function StatusBadge({ status }: { status: Order["status"] }) {
-  const map = {
-    pendente: { l: "Pendente", c: "bg-amber-500/10 text-amber-600" },
-    em_manutencao: { l: "Em manutenção", c: "bg-blue-500/10 text-blue-600" },
-    solucionado: { l: "Solucionado", c: "bg-green-500/10 text-green-600" },
-  } as const;
-  const s = map[status];
-  return <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${s.c}`}>{s.l}</span>;
+  return <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${statusTone(status)}`}>{statusLabel(status)}</span>;
 }
 
 function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
+  const { user } = useAuth();
   const [status, setStatus] = useState(order.status);
   const [solution, setSolution] = useState(order.solution_description ?? "");
   const [items, setItems] = useState(order.items_replaced ?? "");
@@ -138,19 +137,68 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const [oleo, setOleo] = useState(order.validade_oleo ?? "");
   const [dataSaida, setDataSaida] = useState(order.data_saida ?? "");
   const [horaSaida, setHoraSaida] = useState(order.hora_saida ?? "");
+  const [laborDesc, setLaborDesc] = useState(order.labor_description ?? "");
+  const [laborHours, setLaborHours] = useState(order.labor_hours?.toString() ?? "");
+  const [laborCost, setLaborCost] = useState(order.labor_cost?.toString() ?? "");
+  const [partsNeeded, setPartsNeeded] = useState(order.parts_needed ?? "");
+  const [partsSupplier, setPartsSupplier] = useState(order.parts_supplier ?? "");
+  const [partsCost, setPartsCost] = useState(order.parts_cost ?? "");
+  const [finalObs, setFinalObs] = useState(order.final_observation ?? "");
+  const [evoNote, setEvoNote] = useState("");
+  const [evolutions, setEvolutions] = useState<Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null; user_name?: string | null }>>([]);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => { (async () => {
+    const { data } = await supabase
+      .from("maintenance_evolutions")
+      .select("id, created_at, status, observation, user_id")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: false });
+    const rows = (data ?? []) as Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null }>;
+    const ids = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean) as string[]));
+    let nameById: Record<string, string> = {};
+    if (ids.length) {
+      const { data: dd } = await supabase.from("drivers_directory").select("id, full_name").in("id", ids);
+      nameById = Object.fromEntries((dd ?? []).map((p) => [p.id, p.full_name ?? "—"]));
+    }
+    setEvolutions(rows.map((r) => ({ ...r, user_name: r.user_id ? nameById[r.user_id] ?? null : null })));
+  })(); }, [order.id]);
+
   const save = async () => {
+    if (IS_DONE_STATUS(status) && !finalObs.trim()) {
+      toast.error("Adicione uma observação final antes de concluir a OS");
+      return;
+    }
+    if (NEEDS_LABOR_BUDGET(status) && !laborDesc.trim()) {
+      toast.error("Descreva a mão de obra orçada");
+      return;
+    }
+    if (NEEDS_PARTS_BUDGET(status) && !partsNeeded.trim()) {
+      toast.error("Liste as peças necessárias");
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
         status, solution_description: solution || null, items_replaced: items || null,
         km_atual: km ? Number(km) : null, validade_oleo: oleo || null,
         data_saida: dataSaida || null, hora_saida: horaSaida || null,
-        ...(status === "solucionado" ? { signed_at: new Date().toISOString() } : {}),
+        labor_description: laborDesc || null,
+        labor_hours: laborHours ? Number(laborHours) : null,
+        labor_cost: laborCost ? Number(laborCost) : null,
+        parts_needed: partsNeeded || null,
+        parts_supplier: partsSupplier || null,
+        parts_cost: partsCost ? Number(partsCost) : null,
+        final_observation: finalObs || null,
+        ...(IS_DONE_STATUS(status) ? { signed_at: new Date().toISOString() } : {}),
       };
       const { error } = await supabase.from("maintenance_orders").update(payload).eq("id", order.id);
       if (error) throw error;
+      // grava evolução automaticamente (status + nota opcional)
+      const obs = evoNote.trim() || `Status atualizado para "${statusLabel(status)}"`;
+      await supabase.from("maintenance_evolutions").insert({
+        order_id: order.id, user_id: user?.id ?? null, status, observation: obs,
+      });
       toast.success("Atualizada");
       onSaved();
     } catch (e) { toast.error((e as Error).message); }
@@ -173,10 +221,8 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
         )}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           <div><Label className="text-xs">Status</Label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-              <option value="pendente">Pendente</option>
-              <option value="em_manutencao">Em manutenção</option>
-              <option value="solucionado">Solucionado (baixa)</option>
+            <select value={status} onChange={(e) => setStatus(e.target.value as MaintenanceStatus)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div><Label className="text-xs">KM atual</Label><Input value={km} onChange={(e) => setKm(e.target.value)} type="number" /></div>
@@ -184,11 +230,60 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
           <div><Label className="text-xs">Data saída</Label><Input type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} /></div>
           <div><Label className="text-xs">Hora saída</Label><Input type="time" value={horaSaida} onChange={(e) => setHoraSaida(e.target.value)} /></div>
         </div>
+
+        {NEEDS_LABOR_BUDGET(status) && (
+          <Card className="p-3 space-y-2 bg-indigo-500/5 border-indigo-500/20">
+            <div className="font-semibold text-xs">Orçamento de mão de obra *</div>
+            <div><Label className="text-xs">Descrição da mão de obra</Label><Textarea rows={2} value={laborDesc} onChange={(e) => setLaborDesc(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-xs">Horas previstas</Label><Input type="number" step="0.5" value={laborHours} onChange={(e) => setLaborHours(e.target.value)} /></div>
+              <div><Label className="text-xs">Valor estimado (R$)</Label><Input type="number" step="0.01" value={laborCost} onChange={(e) => setLaborCost(e.target.value)} /></div>
+            </div>
+          </Card>
+        )}
+
+        {NEEDS_PARTS_BUDGET(status) && (
+          <Card className="p-3 space-y-2 bg-indigo-500/5 border-indigo-500/20">
+            <div className="font-semibold text-xs">Orçamento de peças *</div>
+            <div><Label className="text-xs">Peças necessárias / quantidade</Label><Textarea rows={2} value={partsNeeded} onChange={(e) => setPartsNeeded(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-xs">Fornecedor</Label><Input value={partsSupplier} onChange={(e) => setPartsSupplier(e.target.value)} /></div>
+              <div><Label className="text-xs">Valor estimado (R$)</Label><Input type="number" step="0.01" value={partsCost as string} onChange={(e) => setPartsCost(e.target.value)} /></div>
+            </div>
+          </Card>
+        )}
+
         <div><Label className="text-xs">Descrição da solução</Label><Textarea rows={4} value={solution} onChange={(e) => setSolution(e.target.value)} /></div>
         <div><Label className="text-xs">Itens trocados</Label><Textarea rows={3} value={items} onChange={(e) => setItems(e.target.value)} /></div>
+
+        {IS_DONE_STATUS(status) && (
+          <div>
+            <Label className="text-xs">Observação final do mecânico *</Label>
+            <Textarea rows={2} value={finalObs} onChange={(e) => setFinalObs(e.target.value)} placeholder="Obrigatória para concluir a OS" />
+          </div>
+        )}
+
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="font-semibold text-sm">Evolução da manutenção</div>
+          <Textarea rows={2} value={evoNote} onChange={(e) => setEvoNote(e.target.value)} placeholder="Observação desta atualização (opcional)" />
+          <div className="space-y-1 max-h-48 overflow-auto">
+            {evolutions.length === 0 && <div className="text-xs text-muted-foreground">Sem registros ainda.</div>}
+            {evolutions.map((e) => (
+              <div key={e.id} className="text-xs p-2 bg-muted/50 rounded">
+                <div className="flex justify-between gap-2 text-muted-foreground">
+                  <span>{new Date(e.created_at).toLocaleString("pt-BR")}</span>
+                  <span className={`px-1.5 rounded ${statusTone(e.status ?? "")}`}>{statusLabel(e.status ?? "—")}</span>
+                </div>
+                <div className="font-medium">{e.user_name ?? "—"}</div>
+                <div>{e.observation}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="flex gap-2 pt-2">
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
-          <Button className="flex-1" onClick={save} disabled={busy}>{busy ? "..." : status === "solucionado" ? "Dar baixa" : "Salvar"}</Button>
+          <Button className="flex-1" onClick={save} disabled={busy}>{busy ? "..." : IS_DONE_STATUS(status) ? "Concluir OS" : "Salvar"}</Button>
         </div>
       </Card>
     </div>
