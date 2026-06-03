@@ -12,6 +12,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding, BASE_CODES } from "@/lib/admin-pdf";
 import { useAuth } from "@/lib/auth";
+import { STATUS_OPTIONS, statusLabel, statusTone, type MaintenanceStatus } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/admin/maintenance/$id")({ component: OrderForm });
 
@@ -19,11 +20,14 @@ type Order = {
   id?: string; order_number?: string; order_type: "SMI" | "SMV"; base_code: string;
   vehicle_id: string | null; driver_id: string | null; checklist_id: string | null;
   failure_description: string; service_type: string; workshop: string;
-  status: "pendente" | "em_manutencao" | "solucionado"; observations: string;
+  status: MaintenanceStatus; observations: string;
   maintenance_category?: string; validade_oleo?: string; km_atual?: number | null;
   combustivel_chegada?: string; data_entrada?: string; hora_entrada?: string;
   data_saida?: string; hora_saida?: string; mod_carro?: string;
   solution_description?: string; items_replaced?: string;
+  labor_description?: string; labor_hours?: number | null; labor_cost?: number | null;
+  parts_needed?: string; parts_supplier?: string; parts_cost?: number | null;
+  final_observation?: string;
 };
 
 function OrderForm() {
@@ -42,6 +46,24 @@ function OrderForm() {
   const [vehicles, setVehicles] = useState<Array<{ id: string; plate: string }>>([]);
   const [drivers, setDrivers] = useState<Array<{ id: string; full_name: string | null }>>([]);
   const [busy, setBusy] = useState(false);
+  const [evolutions, setEvolutions] = useState<Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null; user_name?: string | null }>>([]);
+
+  useEffect(() => { (async () => {
+    if (isNew) return;
+    const { data } = await supabase
+      .from("maintenance_evolutions")
+      .select("id, created_at, status, observation, user_id")
+      .eq("order_id", id)
+      .order("created_at", { ascending: false });
+    const rows = (data ?? []) as Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null }>;
+    const ids = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean) as string[]));
+    let nameById: Record<string, string> = {};
+    if (ids.length) {
+      const { data: dd } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      nameById = Object.fromEntries((dd ?? []).map((p) => [p.id, p.full_name ?? "—"]));
+    }
+    setEvolutions(rows.map((r) => ({ ...r, user_name: r.user_id ? nameById[r.user_id] ?? null : null })));
+  })(); }, [id, isNew]);
 
   useEffect(() => { (async () => {
     const [{ data: vs }, { data: ds }] = await Promise.all([
@@ -174,8 +196,8 @@ function OrderForm() {
           </select>
         </div>
         <div><Label className="text-xs">Status</Label>
-          <select value={order.status} onChange={(e) => setOrder({ ...order, status: e.target.value as never })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            <option value="pendente">Pendente</option><option value="em_manutencao">Em manutenção</option><option value="solucionado">Solucionado</option>
+          <select value={order.status} onChange={(e) => setOrder({ ...order, status: e.target.value as MaintenanceStatus })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div><Label className="text-xs">Veículo</Label>
