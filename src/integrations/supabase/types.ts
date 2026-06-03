@@ -272,6 +272,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "maintenance_evolutions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       maintenance_order_counters: {
@@ -430,6 +437,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "maintenance_orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "maintenance_orders_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
@@ -441,6 +455,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
           {
@@ -608,6 +629,30 @@ export type Database = {
         Update: {
           full_name?: string | null
           id?: string | null
+        }
+        Relationships: []
+      }
+      profiles_public: {
+        Row: {
+          base: string | null
+          company: string | null
+          full_name: string | null
+          id: string | null
+          role_function: Database["public"]["Enums"]["driver_function"] | null
+        }
+        Insert: {
+          base?: string | null
+          company?: string | null
+          full_name?: string | null
+          id?: string | null
+          role_function?: Database["public"]["Enums"]["driver_function"] | null
+        }
+        Update: {
+          base?: string | null
+          company?: string | null
+          full_name?: string | null
+          id?: string | null
+          role_function?: Database["public"]["Enums"]["driver_function"] | null
         }
         Relationships: []
       }
