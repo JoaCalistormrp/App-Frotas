@@ -33,7 +33,7 @@ type Order = {
 function MechanicPage() {
   const { user, loading, isMechanic, isAdmin, signOut } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [statusFilter, setStatusFilter] = useState<"abertos" | "pendente" | "em_manutencao" | "solucionado" | "todos">("abertos");
+  const [statusFilter, setStatusFilter] = useState<string>("abertos");
   const [editing, setEditing] = useState<Order | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -42,8 +42,13 @@ function MechanicPage() {
       .from("maintenance_orders")
       .select("*, vehicles(plate, model)")
       .order("created_at", { ascending: false });
-    if (statusFilter === "abertos") q = q.in("status", ["pendente", "em_manutencao"]);
-    else if (statusFilter !== "todos") q = q.eq("status", statusFilter);
+    if (statusFilter === "abertos") {
+      q = q.in("status", ["aberta", "pendente", "em_analise", "orcando_mao_obra", "orcando_pecas", "aguardando_aprovacao", "aguardando_pecas", "em_execucao", "em_manutencao", "teste_final"]);
+    } else if (statusFilter === "concluidas") {
+      q = q.in("status", ["finalizada", "solucionado"]);
+    } else if (statusFilter !== "todos") {
+      q = q.eq("status", statusFilter as never);
+    }
     const { data, error } = await q;
     if (error) { toast.error(error.message); return; }
     const rows = (data ?? []) as unknown as Order[];
@@ -80,9 +85,10 @@ function MechanicPage() {
         <Card className="p-3 flex gap-2 flex-wrap">
           {([
             ["abertos", "Em aberto", AlertCircle],
-            ["pendente", "Pendentes", Clock],
-            ["em_manutencao", "Em manutenção", Wrench],
-            ["solucionado", "Solucionados", CheckCircle2],
+            ["aguardando_aprovacao", "Aguard. aprovação", Clock],
+            ["aguardando_pecas", "Aguard. peças", Clock],
+            ["em_execucao", "Em execução", Wrench],
+            ["concluidas", "Concluídas", CheckCircle2],
             ["todos", "Todos", Clock],
           ] as const).map(([v, l, Icon]) => (
             <Button key={v} size="sm" variant={statusFilter === v ? "default" : "outline"} onClick={() => setStatusFilter(v)}>
