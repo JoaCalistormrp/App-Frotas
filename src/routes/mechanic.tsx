@@ -1,13 +1,14 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Wrench, LogOut, CheckCircle2, Clock, AlertCircle, X as XIcon } from "lucide-react";
+import { Wrench, LogOut, CheckCircle2, Clock, AlertCircle, X as XIcon, Camera, Trash2, ClipboardList, FilePlus } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 import { STATUS_OPTIONS, statusLabel, statusTone, NEEDS_LABOR_BUDGET, NEEDS_PARTS_BUDGET, IS_DONE_STATUS, type MaintenanceStatus } from "@/lib/maintenance";
@@ -32,10 +33,12 @@ type Order = {
 
 function MechanicPage() {
   const { user, loading, isMechanic, isAdmin, signOut } = useAuth();
+  const [tab, setTab] = useState<"checklists" | "orders">("checklists");
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("abertos");
   const [editing, setEditing] = useState<Order | null>(null);
   const [creating, setCreating] = useState(false);
+  const [creatingFromChecklist, setCreatingFromChecklist] = useState<ChecklistRow | null>(null);
 
   const load = async () => {
     let q = supabase
@@ -82,7 +85,18 @@ function MechanicPage() {
       </header>
 
       <main className="max-w-5xl mx-auto p-4 space-y-4">
-        <Card className="p-3 flex gap-2 flex-wrap">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "checklists" | "orders")}>
+          <TabsList className="w-full">
+            <TabsTrigger value="checklists" className="flex-1"><ClipboardList className="size-4" />Checklists</TabsTrigger>
+            <TabsTrigger value="orders" className="flex-1"><Wrench className="size-4" />Ordens de Serviço</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="checklists" className="space-y-3">
+            <ChecklistsPanel onOpenOSFromChecklist={(c) => setCreatingFromChecklist(c)} />
+          </TabsContent>
+
+          <TabsContent value="orders" className="space-y-3">
+            <Card className="p-3 flex gap-2 flex-wrap">
           {([
             ["abertos", "Em aberto", AlertCircle],
             ["aguardando_aprovacao", "Aguard. aprovação", Clock],
@@ -119,10 +133,19 @@ function MechanicPage() {
             </Card>
           ))}
         </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {editing && <OrderModal order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {creating && <NewOrderModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
+      {creatingFromChecklist && (
+        <NewOrderModal
+          presetChecklist={creatingFromChecklist}
+          onClose={() => setCreatingFromChecklist(null)}
+          onCreated={() => { setCreatingFromChecklist(null); setTab("orders"); load(); }}
+        />
+      )}
       <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground">
         Desenvolvido por Julia Ramos
       </footer>
