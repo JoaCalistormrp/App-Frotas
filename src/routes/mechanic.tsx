@@ -461,13 +461,17 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
 
 type VehicleOpt = { id: string; plate: string | null; model: string | null; base: string | null };
 
-function NewOrderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewOrderModal({ onClose, onCreated, presetChecklist }: { onClose: () => void; onCreated: () => void; presetChecklist?: ChecklistRow | null }) {
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleOpt[]>([]);
-  const [vehicleId, setVehicleId] = useState("");
+  const [vehicleId, setVehicleId] = useState(presetChecklist?.vehicle_id ?? "");
   const [orderType, setOrderType] = useState<"SMI" | "SMV">("SMI");
-  const [base, setBase] = useState("");
-  const [failure, setFailure] = useState("");
+  const [base, setBase] = useState(presetChecklist?.vehicle?.base ?? "");
+  const [failure, setFailure] = useState(
+    presetChecklist?.failures?.length
+      ? presetChecklist.failures.map((f) => `• ${f.item_name}${f.observation ? `: ${f.observation}` : ""}`).join("\n")
+      : ""
+  );
   const [serviceType, setServiceType] = useState("");
   const [workshop, setWorkshop] = useState("");
   const [busy, setBusy] = useState(false);
@@ -498,6 +502,8 @@ function NewOrderModal({ onClose, onCreated }: { onClose: () => void; onCreated:
         workshop: workshop || null,
         status: "pendente",
         created_by: user?.id ?? null,
+        driver_id: presetChecklist?.driver_id ?? null,
+        checklist_id: presetChecklist?.id ?? null,
       });
       if (error) throw error;
       toast.success(`OS ${orderNumber} aberta`);
