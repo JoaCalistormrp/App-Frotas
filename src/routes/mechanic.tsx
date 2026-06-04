@@ -325,13 +325,13 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   };
 
   const loadPhotos = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as unknown as { from: (t: string) => { select: (s: string) => { eq: (a: string, b: string) => { order: (c: string, d: { ascending: boolean }) => Promise<{ data: unknown[] | null; error: { message: string } | null }> } } } })
       .from("maintenance_photos")
       .select("id, category, storage_path, caption, created_at")
       .eq("order_id", order.id)
       .order("created_at", { ascending: true });
     if (error) return;
-    const rows = (data ?? []) as Array<{ id: string; category: "falha"|"execucao"|"conclusao"; storage_path: string; caption: string | null; created_at: string }>;
+    const rows = (data ?? []) as unknown as Array<{ id: string; category: "falha"|"execucao"|"conclusao"; storage_path: string; caption: string | null; created_at: string }>;
     const withUrls = await Promise.all(rows.map(async (r) => {
       const { data: signed } = await supabase.storage.from("maintenance-photos").createSignedUrl(r.storage_path, 3600);
       return { ...r, url: signed?.signedUrl ?? "" };
@@ -347,9 +347,9 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
       const path = `${order.id}/${cat}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
       const { error: upErr } = await supabase.storage.from("maintenance-photos").upload(path, file, { contentType: file.type });
       if (upErr) throw upErr;
-      const { error: insErr } = await supabase.from("maintenance_photos").insert({
-        order_id: order.id, category: cat, storage_path: path, uploaded_by: user?.id ?? null,
-      });
+      const { error: insErr } = await (supabase as unknown as { from: (t: string) => { insert: (v: unknown) => Promise<{ error: { message: string } | null }> } })
+        .from("maintenance_photos")
+        .insert({ order_id: order.id, category: cat, storage_path: path, uploaded_by: user?.id ?? null });
       if (insErr) throw insErr;
       await loadPhotos();
       toast.success("Foto enviada");
@@ -361,7 +361,8 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
     if (IS_DONE_STATUS(status)) { toast.error("OS concluída — exclusão bloqueada"); return; }
     if (!confirm("Excluir esta foto?")) return;
     await supabase.storage.from("maintenance-photos").remove([p.storage_path]);
-    await supabase.from("maintenance_photos").delete().eq("id", p.id);
+    await (supabase as unknown as { from: (t: string) => { delete: () => { eq: (a: string, b: string) => Promise<unknown> } } })
+      .from("maintenance_photos").delete().eq("id", p.id);
     setPhotos((prev) => prev.filter((x) => x.id !== p.id));
   };
 
