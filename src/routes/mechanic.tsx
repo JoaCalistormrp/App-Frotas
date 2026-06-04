@@ -1,13 +1,14 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Wrench, LogOut, CheckCircle2, Clock, AlertCircle, X as XIcon } from "lucide-react";
+import { Wrench, LogOut, CheckCircle2, Clock, AlertCircle, X as XIcon, Camera, Trash2, ClipboardList, FilePlus } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 import { STATUS_OPTIONS, statusLabel, statusTone, NEEDS_LABOR_BUDGET, NEEDS_PARTS_BUDGET, IS_DONE_STATUS, type MaintenanceStatus } from "@/lib/maintenance";
@@ -32,10 +33,12 @@ type Order = {
 
 function MechanicPage() {
   const { user, loading, isMechanic, isAdmin, signOut } = useAuth();
+  const [tab, setTab] = useState<"checklists" | "orders">("checklists");
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("abertos");
   const [editing, setEditing] = useState<Order | null>(null);
   const [creating, setCreating] = useState(false);
+  const [creatingFromChecklist, setCreatingFromChecklist] = useState<ChecklistRow | null>(null);
 
   const load = async () => {
     let q = supabase
@@ -82,7 +85,18 @@ function MechanicPage() {
       </header>
 
       <main className="max-w-5xl mx-auto p-4 space-y-4">
-        <Card className="p-3 flex gap-2 flex-wrap">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "checklists" | "orders")}>
+          <TabsList className="w-full">
+            <TabsTrigger value="checklists" className="flex-1"><ClipboardList className="size-4" />Checklists</TabsTrigger>
+            <TabsTrigger value="orders" className="flex-1"><Wrench className="size-4" />Ordens de Serviço</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="checklists" className="space-y-3">
+            <ChecklistsPanel onOpenOSFromChecklist={(c) => setCreatingFromChecklist(c)} />
+          </TabsContent>
+
+          <TabsContent value="orders" className="space-y-3">
+            <Card className="p-3 flex gap-2 flex-wrap">
           {([
             ["abertos", "Em aberto", AlertCircle],
             ["aguardando_aprovacao", "Aguard. aprovação", Clock],
@@ -119,10 +133,19 @@ function MechanicPage() {
             </Card>
           ))}
         </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {editing && <OrderModal order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {creating && <NewOrderModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
+      {creatingFromChecklist && (
+        <NewOrderModal
+          presetChecklist={creatingFromChecklist}
+          onClose={() => setCreatingFromChecklist(null)}
+          onCreated={() => { setCreatingFromChecklist(null); setTab("orders"); load(); }}
+        />
+      )}
       <footer className="border-t border-border bg-card px-4 py-2 text-center text-[11px] text-muted-foreground">
         Desenvolvido por Julia Ramos
       </footer>
@@ -132,6 +155,146 @@ function MechanicPage() {
 
 function StatusBadge({ status }: { status: Order["status"] }) {
   return <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${statusTone(status)}`}>{statusLabel(status)}</span>;
+}
+
+// ---------------- Checklists panel ----------------
+
+type ChecklistRow = {
+  id: string;
+  vehicle_id: string;
+  driver_id: string;
+  has_issues: boolean;
+  status: string;
+  completed_at: string | null;
+  created_at: string;
+  observations: string | null;
+  vehicle?: { plate: string | null; model: string | null; base: string | null } | null;
+  driver_name?: string | null;
+  failures?: Array<{ id: string; item_name: string; observation: string | null; photo_url: string | null }>;
+};
+
+function ChecklistsPanel({ onOpenOSFromChecklist }: { onOpenOSFromChecklist: (c: ChecklistRow) => void }) {
+  const [filter, setFilter] = useState<"falhas" | "ok" | "todos">("falhas");
+  const [rows, setRows] = useState<ChecklistRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    let q = supabase
+      .from("checklists")
+      .select("id, vehicle_id, driver_id, has_issues, status, completed_at, created_at, observations")
+      .order("created_at", { ascending: false })
+      .limit(80);
+    if (filter === "falhas") q = q.eq("has_issues", true);
+    if (filter === "ok") q = q.eq("has_issues", false);
+    const { data, error } = await q;
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    const list = (data ?? []) as ChecklistRow[];
+
+    const vehicleIds = Array.from(new Set(list.map((r) => r.vehicle_id).filter(Boolean)));
+    const driverIds = Array.from(new Set(list.map((r) => r.driver_id).filter(Boolean)));
+    const ids = list.map((r) => r.id);
+
+    const [{ data: vs }, { data: ds }, { data: resps }] = await Promise.all([
+      vehicleIds.length
+        ? supabase.from("vehicles").select("id, plate, model, base").in("id", vehicleIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; plate: string | null; model: string | null; base: string | null }> }),
+      driverIds.length
+        ? supabase.from("drivers_directory").select("id, full_name").in("id", driverIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null }> }),
+      ids.length
+        ? supabase
+            .from("checklist_responses")
+            .select("id, checklist_id, item_id, observation, photo_url, status")
+            .in("checklist_id", ids)
+            .eq("status", "with_issue" as never)
+        : Promise.resolve({ data: [] as Array<{ id: string; checklist_id: string; item_id: string; observation: string | null; photo_url: string | null; status: string }> }),
+    ]);
+
+    const vById = Object.fromEntries((vs ?? []).map((v) => [v.id, v]));
+    const dById = Object.fromEntries((ds ?? []).map((d) => [d.id, d.full_name ?? "—"]));
+
+    const itemIds = Array.from(new Set((resps ?? []).map((r) => r.item_id)));
+    let itemById: Record<string, string> = {};
+    if (itemIds.length) {
+      const { data: items } = await supabase.from("checklist_items").select("id, name").in("id", itemIds);
+      itemById = Object.fromEntries((items ?? []).map((it) => [it.id, it.name]));
+    }
+    const failuresBy: Record<string, ChecklistRow["failures"]> = {};
+    (resps ?? []).forEach((r) => {
+      (failuresBy[r.checklist_id] ||= []).push({
+        id: r.id,
+        item_name: itemById[r.item_id] ?? "Item",
+        observation: r.observation,
+        photo_url: r.photo_url,
+      });
+    });
+
+    setRows(list.map((r) => ({
+      ...r,
+      vehicle: vById[r.vehicle_id] ?? null,
+      driver_name: dById[r.driver_id] ?? "—",
+      failures: failuresBy[r.id] ?? [],
+    })));
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+
+  return (
+    <div className="space-y-3">
+      <Card className="p-3 flex gap-2 flex-wrap">
+        <Button size="sm" variant={filter === "falhas" ? "default" : "outline"} onClick={() => setFilter("falhas")}>
+          <AlertCircle className="size-3" />Veículos com falhas
+        </Button>
+        <Button size="sm" variant={filter === "ok" ? "default" : "outline"} onClick={() => setFilter("ok")}>
+          <CheckCircle2 className="size-3" />OS ok
+        </Button>
+        <Button size="sm" variant={filter === "todos" ? "default" : "outline"} onClick={() => setFilter("todos")}>
+          <Clock className="size-3" />Todos
+        </Button>
+      </Card>
+
+      {loading && <Card className="p-6 text-sm text-muted-foreground text-center">Carregando…</Card>}
+      {!loading && rows.length === 0 && (
+        <Card className="p-6 text-sm text-muted-foreground text-center">Nenhum checklist nesta categoria.</Card>
+      )}
+      <div className="space-y-2">
+        {rows.map((c) => (
+          <Card key={c.id} className={`p-4 ${c.has_issues ? "border-l-4 border-l-destructive" : "border-l-4 border-l-emerald-500"}`}>
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="font-bold flex items-center gap-2 flex-wrap text-sm">
+                  <span>{c.vehicle?.plate ?? "—"}</span>
+                  {c.vehicle?.model && <span className="text-muted-foreground font-normal">• {c.vehicle.model}</span>}
+                  {c.has_issues
+                    ? <span className="text-[10px] uppercase bg-destructive/15 text-destructive px-2 py-0.5 rounded">Com falhas</span>
+                    : <span className="text-[10px] uppercase bg-emerald-500/15 text-emerald-600 px-2 py-0.5 rounded">OK</span>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Motorista: {c.driver_name} • {new Date(c.created_at).toLocaleString("pt-BR")}
+                </div>
+                {c.has_issues && c.failures && c.failures.length > 0 && (
+                  <ul className="mt-2 text-xs space-y-1">
+                    {c.failures.map((f) => (
+                      <li key={f.id} className="p-1.5 bg-destructive/5 rounded">
+                        <span className="font-medium">{f.item_name}</span>
+                        {f.observation && <span className="text-muted-foreground"> — {f.observation}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {c.has_issues && (
+                <Button size="sm" onClick={() => onOpenOSFromChecklist(c)}>
+                  <FilePlus className="size-3" />Abrir OS
+                </Button>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
@@ -153,6 +316,55 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const [evoNote, setEvoNote] = useState("");
   const [evolutions, setEvolutions] = useState<Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null; user_name?: string | null }>>([]);
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<Array<{ id: string; category: "falha" | "execucao" | "conclusao"; storage_path: string; caption: string | null; url: string; created_at: string }>>([]);
+  const [uploadingCat, setUploadingCat] = useState<null | "falha" | "execucao" | "conclusao">(null);
+  const fileRefs = {
+    falha: useRef<HTMLInputElement>(null),
+    execucao: useRef<HTMLInputElement>(null),
+    conclusao: useRef<HTMLInputElement>(null),
+  };
+
+  const loadPhotos = async () => {
+    const { data, error } = await (supabase as unknown as { from: (t: string) => { select: (s: string) => { eq: (a: string, b: string) => { order: (c: string, d: { ascending: boolean }) => Promise<{ data: unknown[] | null; error: { message: string } | null }> } } } })
+      .from("maintenance_photos")
+      .select("id, category, storage_path, caption, created_at")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true });
+    if (error) return;
+    const rows = (data ?? []) as unknown as Array<{ id: string; category: "falha"|"execucao"|"conclusao"; storage_path: string; caption: string | null; created_at: string }>;
+    const withUrls = await Promise.all(rows.map(async (r) => {
+      const { data: signed } = await supabase.storage.from("maintenance-photos").createSignedUrl(r.storage_path, 3600);
+      return { ...r, url: signed?.signedUrl ?? "" };
+    }));
+    setPhotos(withUrls);
+  };
+  useEffect(() => { loadPhotos(); /* eslint-disable-next-line */ }, [order.id]);
+
+  const uploadPhoto = async (cat: "falha" | "execucao" | "conclusao", file: File) => {
+    setUploadingCat(cat);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${order.id}/${cat}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("maintenance-photos").upload(path, file, { contentType: file.type });
+      if (upErr) throw upErr;
+      const { error: insErr } = await (supabase as unknown as { from: (t: string) => { insert: (v: unknown) => Promise<{ error: { message: string } | null }> } })
+        .from("maintenance_photos")
+        .insert({ order_id: order.id, category: cat, storage_path: path, uploaded_by: user?.id ?? null });
+      if (insErr) throw insErr;
+      await loadPhotos();
+      toast.success("Foto enviada");
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setUploadingCat(null); }
+  };
+
+  const deletePhoto = async (p: { id: string; storage_path: string }) => {
+    if (IS_DONE_STATUS(status)) { toast.error("OS concluída — exclusão bloqueada"); return; }
+    if (!confirm("Excluir esta foto?")) return;
+    await supabase.storage.from("maintenance-photos").remove([p.storage_path]);
+    await (supabase as unknown as { from: (t: string) => { delete: () => { eq: (a: string, b: string) => Promise<unknown> } } })
+      .from("maintenance_photos").delete().eq("id", p.id);
+    setPhotos((prev) => prev.filter((x) => x.id !== p.id));
+  };
 
   useEffect(() => { (async () => {
     const { data } = await supabase
@@ -173,6 +385,10 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const save = async () => {
     if (IS_DONE_STATUS(status) && !finalObs.trim()) {
       toast.error("Adicione uma observação final antes de concluir a OS");
+      return;
+    }
+    if (IS_DONE_STATUS(status) && photos.filter((p) => p.category === "conclusao").length === 0) {
+      toast.error("Anexe pelo menos 1 foto de Conclusão antes de finalizar");
       return;
     }
     if (NEEDS_LABOR_BUDGET(status) && !laborDesc.trim()) {
@@ -269,6 +485,47 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
           </div>
         )}
 
+        <div className="space-y-3 pt-2 border-t border-border">
+          <div className="font-semibold text-sm flex items-center gap-2"><Camera className="size-4" />Fotos da OS</div>
+          {(["falha","execucao","conclusao"] as const).map((cat) => {
+            const label = cat === "falha" ? "Falha" : cat === "execucao" ? "Execução" : "Conclusão";
+            const list = photos.filter((p) => p.category === cat);
+            return (
+              <div key={cat} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{label} {cat === "conclusao" && <span className="text-destructive">*</span>}</span>
+                  <input
+                    ref={fileRefs[cat]} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(cat, f); e.target.value = ""; }}
+                  />
+                  <Button size="sm" variant="outline" disabled={uploadingCat === cat || IS_DONE_STATUS(status)} onClick={() => fileRefs[cat].current?.click()}>
+                    <Camera className="size-3" />{uploadingCat === cat ? "Enviando…" : "Adicionar"}
+                  </Button>
+                </div>
+                {list.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground">Sem fotos.</div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {list.map((p) => (
+                      <div key={p.id} className="relative group aspect-square rounded overflow-hidden bg-muted">
+                        <a href={p.url} target="_blank" rel="noreferrer">
+                          <img src={p.url} alt={label} className="w-full h-full object-cover" loading="lazy" />
+                        </a>
+                        {!IS_DONE_STATUS(status) && (
+                          <button type="button" onClick={() => deletePhoto(p)} className="absolute top-1 right-1 bg-black/60 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition">
+                            <Trash2 className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div className="text-[11px] text-muted-foreground">Pelo menos 1 foto de Conclusão é obrigatória para finalizar a OS.</div>
+        </div>
+
         <div className="space-y-2 pt-2 border-t border-border">
           <div className="font-semibold text-sm">Evolução da manutenção</div>
           <Textarea rows={2} value={evoNote} onChange={(e) => setEvoNote(e.target.value)} placeholder="Observação desta atualização (opcional)" />
@@ -298,13 +555,17 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
 
 type VehicleOpt = { id: string; plate: string | null; model: string | null; base: string | null };
 
-function NewOrderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewOrderModal({ onClose, onCreated, presetChecklist }: { onClose: () => void; onCreated: () => void; presetChecklist?: ChecklistRow | null }) {
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleOpt[]>([]);
-  const [vehicleId, setVehicleId] = useState("");
+  const [vehicleId, setVehicleId] = useState(presetChecklist?.vehicle_id ?? "");
   const [orderType, setOrderType] = useState<"SMI" | "SMV">("SMI");
-  const [base, setBase] = useState("");
-  const [failure, setFailure] = useState("");
+  const [base, setBase] = useState(presetChecklist?.vehicle?.base ?? "");
+  const [failure, setFailure] = useState(
+    presetChecklist?.failures?.length
+      ? presetChecklist.failures.map((f) => `• ${f.item_name}${f.observation ? `: ${f.observation}` : ""}`).join("\n")
+      : ""
+  );
   const [serviceType, setServiceType] = useState("");
   const [workshop, setWorkshop] = useState("");
   const [busy, setBusy] = useState(false);
@@ -335,6 +596,8 @@ function NewOrderModal({ onClose, onCreated }: { onClose: () => void; onCreated:
         workshop: workshop || null,
         status: "pendente",
         created_by: user?.id ?? null,
+        driver_id: presetChecklist?.driver_id ?? null,
+        checklist_id: presetChecklist?.id ?? null,
       });
       if (error) throw error;
       toast.success(`OS ${orderNumber} aberta`);
