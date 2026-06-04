@@ -157,6 +157,146 @@ function StatusBadge({ status }: { status: Order["status"] }) {
   return <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${statusTone(status)}`}>{statusLabel(status)}</span>;
 }
 
+// ---------------- Checklists panel ----------------
+
+type ChecklistRow = {
+  id: string;
+  vehicle_id: string;
+  driver_id: string;
+  has_issues: boolean;
+  status: string;
+  completed_at: string | null;
+  created_at: string;
+  observations: string | null;
+  vehicle?: { plate: string | null; model: string | null; base: string | null } | null;
+  driver_name?: string | null;
+  failures?: Array<{ id: string; item_name: string; observation: string | null; photo_url: string | null }>;
+};
+
+function ChecklistsPanel({ onOpenOSFromChecklist }: { onOpenOSFromChecklist: (c: ChecklistRow) => void }) {
+  const [filter, setFilter] = useState<"falhas" | "ok" | "todos">("falhas");
+  const [rows, setRows] = useState<ChecklistRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    let q = supabase
+      .from("checklists")
+      .select("id, vehicle_id, driver_id, has_issues, status, completed_at, created_at, observations")
+      .order("created_at", { ascending: false })
+      .limit(80);
+    if (filter === "falhas") q = q.eq("has_issues", true);
+    if (filter === "ok") q = q.eq("has_issues", false);
+    const { data, error } = await q;
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    const list = (data ?? []) as ChecklistRow[];
+
+    const vehicleIds = Array.from(new Set(list.map((r) => r.vehicle_id).filter(Boolean)));
+    const driverIds = Array.from(new Set(list.map((r) => r.driver_id).filter(Boolean)));
+    const ids = list.map((r) => r.id);
+
+    const [{ data: vs }, { data: ds }, { data: resps }] = await Promise.all([
+      vehicleIds.length
+        ? supabase.from("vehicles").select("id, plate, model, base").in("id", vehicleIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; plate: string | null; model: string | null; base: string | null }> }),
+      driverIds.length
+        ? supabase.from("drivers_directory").select("id, full_name").in("id", driverIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null }> }),
+      ids.length
+        ? supabase
+            .from("checklist_responses")
+            .select("id, checklist_id, item_id, observation, photo_url, status")
+            .in("checklist_id", ids)
+            .eq("status", "with_issue" as never)
+        : Promise.resolve({ data: [] as Array<{ id: string; checklist_id: string; item_id: string; observation: string | null; photo_url: string | null; status: string }> }),
+    ]);
+
+    const vById = Object.fromEntries((vs ?? []).map((v) => [v.id, v]));
+    const dById = Object.fromEntries((ds ?? []).map((d) => [d.id, d.full_name ?? "—"]));
+
+    const itemIds = Array.from(new Set((resps ?? []).map((r) => r.item_id)));
+    let itemById: Record<string, string> = {};
+    if (itemIds.length) {
+      const { data: items } = await supabase.from("checklist_items").select("id, name").in("id", itemIds);
+      itemById = Object.fromEntries((items ?? []).map((it) => [it.id, it.name]));
+    }
+    const failuresBy: Record<string, ChecklistRow["failures"]> = {};
+    (resps ?? []).forEach((r) => {
+      (failuresBy[r.checklist_id] ||= []).push({
+        id: r.id,
+        item_name: itemById[r.item_id] ?? "Item",
+        observation: r.observation,
+        photo_url: r.photo_url,
+      });
+    });
+
+    setRows(list.map((r) => ({
+      ...r,
+      vehicle: vById[r.vehicle_id] ?? null,
+      driver_name: dById[r.driver_id] ?? "—",
+      failures: failuresBy[r.id] ?? [],
+    })));
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+
+  return (
+    <div className="space-y-3">
+      <Card className="p-3 flex gap-2 flex-wrap">
+        <Button size="sm" variant={filter === "falhas" ? "default" : "outline"} onClick={() => setFilter("falhas")}>
+          <AlertCircle className="size-3" />Veículos com falhas
+        </Button>
+        <Button size="sm" variant={filter === "ok" ? "default" : "outline"} onClick={() => setFilter("ok")}>
+          <CheckCircle2 className="size-3" />OS ok
+        </Button>
+        <Button size="sm" variant={filter === "todos" ? "default" : "outline"} onClick={() => setFilter("todos")}>
+          <Clock className="size-3" />Todos
+        </Button>
+      </Card>
+
+      {loading && <Card className="p-6 text-sm text-muted-foreground text-center">Carregando…</Card>}
+      {!loading && rows.length === 0 && (
+        <Card className="p-6 text-sm text-muted-foreground text-center">Nenhum checklist nesta categoria.</Card>
+      )}
+      <div className="space-y-2">
+        {rows.map((c) => (
+          <Card key={c.id} className={`p-4 ${c.has_issues ? "border-l-4 border-l-destructive" : "border-l-4 border-l-emerald-500"}`}>
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="font-bold flex items-center gap-2 flex-wrap text-sm">
+                  <span>{c.vehicle?.plate ?? "—"}</span>
+                  {c.vehicle?.model && <span className="text-muted-foreground font-normal">• {c.vehicle.model}</span>}
+                  {c.has_issues
+                    ? <span className="text-[10px] uppercase bg-destructive/15 text-destructive px-2 py-0.5 rounded">Com falhas</span>
+                    : <span className="text-[10px] uppercase bg-emerald-500/15 text-emerald-600 px-2 py-0.5 rounded">OK</span>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Motorista: {c.driver_name} • {new Date(c.created_at).toLocaleString("pt-BR")}
+                </div>
+                {c.has_issues && c.failures && c.failures.length > 0 && (
+                  <ul className="mt-2 text-xs space-y-1">
+                    {c.failures.map((f) => (
+                      <li key={f.id} className="p-1.5 bg-destructive/5 rounded">
+                        <span className="font-medium">{f.item_name}</span>
+                        {f.observation && <span className="text-muted-foreground"> — {f.observation}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {c.has_issues && (
+                <Button size="sm" onClick={() => onOpenOSFromChecklist(c)}>
+                  <FilePlus className="size-3" />Abrir OS
+                </Button>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
   const { user } = useAuth();
   const [status, setStatus] = useState(order.status);
