@@ -485,6 +485,47 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
           </div>
         )}
 
+        <div className="space-y-3 pt-2 border-t border-border">
+          <div className="font-semibold text-sm flex items-center gap-2"><Camera className="size-4" />Fotos da OS</div>
+          {(["falha","execucao","conclusao"] as const).map((cat) => {
+            const label = cat === "falha" ? "Falha" : cat === "execucao" ? "Execução" : "Conclusão";
+            const list = photos.filter((p) => p.category === cat);
+            return (
+              <div key={cat} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{label} {cat === "conclusao" && <span className="text-destructive">*</span>}</span>
+                  <input
+                    ref={fileRefs[cat]} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(cat, f); e.target.value = ""; }}
+                  />
+                  <Button size="sm" variant="outline" disabled={uploadingCat === cat || IS_DONE_STATUS(status)} onClick={() => fileRefs[cat].current?.click()}>
+                    <Camera className="size-3" />{uploadingCat === cat ? "Enviando…" : "Adicionar"}
+                  </Button>
+                </div>
+                {list.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground">Sem fotos.</div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {list.map((p) => (
+                      <div key={p.id} className="relative group aspect-square rounded overflow-hidden bg-muted">
+                        <a href={p.url} target="_blank" rel="noreferrer">
+                          <img src={p.url} alt={label} className="w-full h-full object-cover" loading="lazy" />
+                        </a>
+                        {!IS_DONE_STATUS(status) && (
+                          <button type="button" onClick={() => deletePhoto(p)} className="absolute top-1 right-1 bg-black/60 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition">
+                            <Trash2 className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div className="text-[11px] text-muted-foreground">Pelo menos 1 foto de Conclusão é obrigatória para finalizar a OS.</div>
+        </div>
+
         <div className="space-y-2 pt-2 border-t border-border">
           <div className="font-semibold text-sm">Evolução da manutenção</div>
           <Textarea rows={2} value={evoNote} onChange={(e) => setEvoNote(e.target.value)} placeholder="Observação desta atualização (opcional)" />
