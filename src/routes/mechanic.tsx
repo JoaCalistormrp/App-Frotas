@@ -316,6 +316,54 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const [evoNote, setEvoNote] = useState("");
   const [evolutions, setEvolutions] = useState<Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null; user_name?: string | null }>>([]);
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<Array<{ id: string; category: "falha" | "execucao" | "conclusao"; storage_path: string; caption: string | null; url: string; created_at: string }>>([]);
+  const [uploadingCat, setUploadingCat] = useState<null | "falha" | "execucao" | "conclusao">(null);
+  const fileRefs = {
+    falha: useRef<HTMLInputElement>(null),
+    execucao: useRef<HTMLInputElement>(null),
+    conclusao: useRef<HTMLInputElement>(null),
+  };
+
+  const loadPhotos = async () => {
+    const { data, error } = await supabase
+      .from("maintenance_photos")
+      .select("id, category, storage_path, caption, created_at")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true });
+    if (error) return;
+    const rows = (data ?? []) as Array<{ id: string; category: "falha"|"execucao"|"conclusao"; storage_path: string; caption: string | null; created_at: string }>;
+    const withUrls = await Promise.all(rows.map(async (r) => {
+      const { data: signed } = await supabase.storage.from("maintenance-photos").createSignedUrl(r.storage_path, 3600);
+      return { ...r, url: signed?.signedUrl ?? "" };
+    }));
+    setPhotos(withUrls);
+  };
+  useEffect(() => { loadPhotos(); /* eslint-disable-next-line */ }, [order.id]);
+
+  const uploadPhoto = async (cat: "falha" | "execucao" | "conclusao", file: File) => {
+    setUploadingCat(cat);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${order.id}/${cat}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("maintenance-photos").upload(path, file, { contentType: file.type });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("maintenance_photos").insert({
+        order_id: order.id, category: cat, storage_path: path, uploaded_by: user?.id ?? null,
+      });
+      if (insErr) throw insErr;
+      await loadPhotos();
+      toast.success("Foto enviada");
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setUploadingCat(null); }
+  };
+
+  const deletePhoto = async (p: { id: string; storage_path: string }) => {
+    if (IS_DONE_STATUS(status)) { toast.error("OS concluída — exclusão bloqueada"); return; }
+    if (!confirm("Excluir esta foto?")) return;
+    await supabase.storage.from("maintenance-photos").remove([p.storage_path]);
+    await supabase.from("maintenance_photos").delete().eq("id", p.id);
+    setPhotos((prev) => prev.filter((x) => x.id !== p.id));
+  };
 
   useEffect(() => { (async () => {
     const { data } = await supabase
@@ -336,6 +384,10 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
   const save = async () => {
     if (IS_DONE_STATUS(status) && !finalObs.trim()) {
       toast.error("Adicione uma observação final antes de concluir a OS");
+      return;
+    }
+    if (IS_DONE_STATUS(status) && photos.filter((p) => p.category === "conclusao").length === 0) {
+      toast.error("Anexe pelo menos 1 foto de Conclusão antes de finalizar");
       return;
     }
     if (NEEDS_LABOR_BUDGET(status) && !laborDesc.trim()) {
