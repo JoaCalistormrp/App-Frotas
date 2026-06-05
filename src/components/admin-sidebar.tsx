@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck, UserCog } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck, UserCog, Trash2 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -13,6 +13,7 @@ const items = [
   { title: "Veículos", url: "/admin/vehicles", icon: Truck },
   { title: "Motoristas", url: "/admin/drivers", icon: Users },
   { title: "SMV / SMI", url: "/admin/maintenance", icon: Wrench },
+  { title: "Lixeira", url: "/admin/maintenance/trash", icon: Trash2, adminOnly: true },
   { title: "Equipe / Acessos", url: "/admin/team", icon: UserCog, adminOnly: true },
 ];
 

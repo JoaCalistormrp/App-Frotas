@@ -19,6 +19,7 @@ import { Route as AdminTeamRouteImport } from './routes/admin.team'
 import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance'
 import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
+import { Route as AdminMaintenanceTrashRouteImport } from './routes/admin.maintenance.trash'
 import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
 
 const MechanicRoute = MechanicRouteImport.update({
@@ -71,6 +72,11 @@ const AdminChecklistsRoute = AdminChecklistsRouteImport.update({
   path: '/checklists',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMaintenanceTrashRoute = AdminMaintenanceTrashRouteImport.update({
+  id: '/trash',
+  path: '/trash',
+  getParentRoute: () => AdminMaintenanceRoute,
+} as any)
 const AdminMaintenanceIdRoute = AdminMaintenanceIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
+  '/admin/maintenance/trash': typeof AdminMaintenanceTrashRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin': typeof AdminIndexRoute
   '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
+  '/admin/maintenance/trash': typeof AdminMaintenanceTrashRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
+  '/admin/maintenance/trash': typeof AdminMaintenanceTrashRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/admin/vehicles'
     | '/admin/'
     | '/admin/maintenance/$id'
+    | '/admin/maintenance/trash'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/admin/vehicles'
     | '/admin'
     | '/admin/maintenance/$id'
+    | '/admin/maintenance/trash'
   id:
     | '__root__'
     | '/'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/admin/vehicles'
     | '/admin/'
     | '/admin/maintenance/$id'
+    | '/admin/maintenance/trash'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +248,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChecklistsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/maintenance/trash': {
+      id: '/admin/maintenance/trash'
+      path: '/trash'
+      fullPath: '/admin/maintenance/trash'
+      preLoaderRoute: typeof AdminMaintenanceTrashRouteImport
+      parentRoute: typeof AdminMaintenanceRoute
+    }
     '/admin/maintenance/$id': {
       id: '/admin/maintenance/$id'
       path: '/$id'
@@ -248,10 +267,12 @@ declare module '@tanstack/react-router' {
 
 interface AdminMaintenanceRouteChildren {
   AdminMaintenanceIdRoute: typeof AdminMaintenanceIdRoute
+  AdminMaintenanceTrashRoute: typeof AdminMaintenanceTrashRoute
 }
 
 const AdminMaintenanceRouteChildren: AdminMaintenanceRouteChildren = {
   AdminMaintenanceIdRoute: AdminMaintenanceIdRoute,
+  AdminMaintenanceTrashRoute: AdminMaintenanceTrashRoute,
 }
 
 const AdminMaintenanceRouteWithChildren =
