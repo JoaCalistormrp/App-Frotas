@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { useAuth } from "@/lib/auth";
@@ -9,9 +9,14 @@ export const Route = createFileRoute("/admin")({
 
 function AdminLayout() {
   const { user, isAdmin, isViewer, loading } = useAuth();
+  const path = useRouterState({ select: (s) => s.location.pathname });
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <Navigate to="/" />;
   if (!isAdmin && !isViewer) return <Navigate to="/" />;
+  // Perfil consulta: somente leitura do histórico de checklists
+  if (isViewer && !isAdmin && path !== "/admin/checklists" && !path.startsWith("/admin/checklists/")) {
+    return <Navigate to="/admin/checklists" />;
+  }
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
