@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, FileDown, Save } from "lucide-react";
+import { ArrowLeft, FileDown, Save, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding, BASE_CODES } from "@/lib/admin-pdf";
@@ -33,7 +33,7 @@ type Order = {
 function OrderForm() {
   const { id } = useParams({ from: "/admin/maintenance/$id" });
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const isNew = id === "new";
   const [order, setOrder] = useState<Order>({
     order_type: "SMI", base_code: "VOT", vehicle_id: null, driver_id: null, checklist_id: null,
@@ -168,6 +168,20 @@ function OrderForm() {
     doc.save(`${order.order_type}_${orderNumber ?? "nova"}.pdf`);
   };
 
+  const moveToTrash = async () => {
+    if (isNew) return;
+    const reason = prompt("Motivo da exclusão (obrigatório):");
+    if (!reason || !reason.trim()) { toast.error("Motivo é obrigatório."); return; }
+    if (!confirm(`Mover a OS ${orderNumber} para a Lixeira? Ela poderá ser restaurada por um administrador.`)) return;
+    const { error } = await supabase
+      .from("maintenance_orders")
+      .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null, delete_reason: reason.trim() } as never)
+      .eq("id", id);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+    toast.success("OS movida para a Lixeira");
+    nav({ to: "/admin/maintenance" });
+  };
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -180,6 +194,9 @@ function OrderForm() {
         </div>
         <div className="flex gap-2">
           {!isNew && <Button variant="outline" onClick={exportPdf}><FileDown className="size-4" />PDF</Button>}
+          {!isNew && isAdmin && (
+            <Button variant="destructive" onClick={moveToTrash}><Trash2 className="size-4" />Excluir</Button>
+          )}
           <Button onClick={save} disabled={busy}><Save className="size-4" />{busy ? "..." : "Salvar"}</Button>
         </div>
       </div>
