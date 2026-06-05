@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck, UserCog } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck, UserCog, Trash2 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -8,11 +8,12 @@ import { useAuth } from "@/lib/auth";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 
 const items = [
-  { title: "Dashboard", url: "/admin", icon: LayoutDashboard, exact: true },
+  { title: "Dashboard", url: "/admin", icon: LayoutDashboard, exact: true, adminOnly: true },
   { title: "Histórico Geral", url: "/admin/checklists", icon: ClipboardList },
-  { title: "Veículos", url: "/admin/vehicles", icon: Truck },
-  { title: "Motoristas", url: "/admin/drivers", icon: Users },
-  { title: "SMV / SMI", url: "/admin/maintenance", icon: Wrench },
+  { title: "Veículos", url: "/admin/vehicles", icon: Truck, adminOnly: true },
+  { title: "Motoristas", url: "/admin/drivers", icon: Users, adminOnly: true },
+  { title: "SMV / SMI", url: "/admin/maintenance", icon: Wrench, adminOnly: true },
+  { title: "Lixeira", url: "/admin/maintenance/trash", icon: Trash2, adminOnly: true },
   { title: "Equipe / Acessos", url: "/admin/team", icon: UserCog, adminOnly: true },
 ];
 

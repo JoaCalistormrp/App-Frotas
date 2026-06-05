@@ -305,6 +305,9 @@ export type Database = {
           created_by: string | null
           data_entrada: string | null
           data_saida: string | null
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           driver_id: string | null
           failure_description: string | null
           final_observation: string | null
@@ -344,6 +347,9 @@ export type Database = {
           created_by?: string | null
           data_entrada?: string | null
           data_saida?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           driver_id?: string | null
           failure_description?: string | null
           final_observation?: string | null
@@ -383,6 +389,9 @@ export type Database = {
           created_by?: string | null
           data_entrada?: string | null
           data_saida?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           driver_id?: string | null
           failure_description?: string | null
           final_observation?: string | null
@@ -476,6 +485,44 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_photos: {
+        Row: {
+          caption: string | null
+          category: Database["public"]["Enums"]["maintenance_photo_category"]
+          created_at: string
+          id: string
+          order_id: string
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          caption?: string | null
+          category: Database["public"]["Enums"]["maintenance_photo_category"]
+          created_at?: string
+          id?: string
+          order_id: string
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          caption?: string | null
+          category?: Database["public"]["Enums"]["maintenance_photo_category"]
+          created_at?: string
+          id?: string
+          order_id?: string
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_photos_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -675,6 +722,7 @@ export type Database = {
         | "administrativo"
         | "encarregado"
         | "motorista"
+      maintenance_photo_category: "falha" | "execucao" | "conclusao"
       maintenance_status:
         | "pendente"
         | "em_manutencao"
@@ -833,6 +881,7 @@ export const Constants = {
         "encarregado",
         "motorista",
       ],
+      maintenance_photo_category: ["falha", "execucao", "conclusao"],
       maintenance_status: [
         "pendente",
         "em_manutencao",
