@@ -305,6 +305,9 @@ export type Database = {
           created_by: string | null
           data_entrada: string | null
           data_saida: string | null
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           driver_id: string | null
           failure_description: string | null
           final_observation: string | null
@@ -344,6 +347,9 @@ export type Database = {
           created_by?: string | null
           data_entrada?: string | null
           data_saida?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           driver_id?: string | null
           failure_description?: string | null
           final_observation?: string | null
@@ -383,6 +389,9 @@ export type Database = {
           created_by?: string | null
           data_entrada?: string | null
           data_saida?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           driver_id?: string | null
           failure_description?: string | null
           final_observation?: string | null
