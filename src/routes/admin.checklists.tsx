@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding } from "@/lib/admin-pdf";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin/checklists")({ component: HistoryPage });
 
@@ -18,9 +19,12 @@ type Row = {
   driver_id: string;
   vehicles: { plate: string; model: string | null; vehicle_type: string; base: string | null } | null;
   profiles?: { full_name: string | null; cpf: string | null } | null;
+  photo_count?: number;
+  photo_urls?: string[];
 };
 
 function HistoryPage() {
+  const { isAdmin } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState("");
@@ -43,7 +47,26 @@ function HistoryPage() {
       const { data: p } = await supabase.from("profiles").select("id, full_name, cpf").in("id", ids);
       map = Object.fromEntries((p ?? []).map((x) => [x.id, { full_name: x.full_name, cpf: x.cpf }]));
     }
-    setRows(list.map((r) => ({ ...r, profiles: map[r.driver_id] ?? null })));
+    // Carrega fotos vinculadas aos checklists (resposta -> photo_url)
+    const checklistIds = list.map((c) => c.id);
+    const photosByChecklist: Record<string, string[]> = {};
+    if (checklistIds.length) {
+      const { data: resps } = await supabase
+        .from("checklist_responses")
+        .select("checklist_id, photo_url")
+        .in("checklist_id", checklistIds)
+        .not("photo_url", "is", null);
+      for (const r of (resps ?? []) as Array<{ checklist_id: string; photo_url: string | null }>) {
+        if (!r.photo_url) continue;
+        (photosByChecklist[r.checklist_id] ||= []).push(r.photo_url);
+      }
+    }
+    setRows(list.map((r) => ({
+      ...r,
+      profiles: map[r.driver_id] ?? null,
+      photo_urls: photosByChecklist[r.id] ?? [],
+      photo_count: (photosByChecklist[r.id] ?? []).length,
+    })));
     setLoading(false);
   })(); }, []);
 
@@ -65,6 +88,8 @@ function HistoryPage() {
     Tipo: c.vehicles?.vehicle_type ?? "", Base: c.vehicles?.base ?? "",
     Motorista: c.profiles?.full_name ?? "", CPF: c.profiles?.cpf ?? "",
     Itinerário: c.itinerary ?? "", Status: c.has_issues ? "Com falhas" : "OK",
+    Fotos: c.photo_count ?? 0,
+    "URLs Fotos": (c.photo_urls ?? []).join(" | "),
   }));
 
   const exportExcel = () => {
@@ -141,12 +166,14 @@ function HistoryPage() {
               {c.has_issues
                 ? <Link to="/admin/maintenance/$id" params={{ id: `new?checklist=${c.id}` }} className="hidden">_</Link>
                 : null}
-              {c.has_issues
-                ? (
-                  <Link to="/admin/maintenance" search={{ checklist: c.id } as never} className="text-xs flex items-center gap-1 text-amber-600 hover:underline shrink-0">
-                    <Wrench className="size-3" />Abrir SMV/SMI
-                  </Link>
-                ) : null}
+              {c.has_issues && isAdmin ? (
+                <Link to="/admin/maintenance" search={{ checklist: c.id } as never} className="text-xs flex items-center gap-1 text-amber-600 hover:underline shrink-0">
+                  <Wrench className="size-3" />Abrir SMV/SMI
+                </Link>
+              ) : null}
+              {(c.photo_count ?? 0) > 0 && (
+                <span className="text-xs text-muted-foreground shrink-0">{c.photo_count} foto(s)</span>
+              )}
               {c.has_issues
                 ? <span className="text-destructive flex items-center gap-1 text-xs shrink-0"><AlertTriangle className="size-3" />Falhas</span>
                 : <span className="text-green-600 flex items-center gap-1 text-xs shrink-0"><CheckCircle2 className="size-3" />OK</span>}
