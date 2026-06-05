@@ -1,99 +1,77 @@
-# Reestruturação Tomaz Checklist — Plano em 4 Entregas
 
-O pedido cobre frontend, backend, banco, permissões e UX de praticamente todos os módulos. Para entregar com qualidade (e sem quebrar o que já funciona), vou dividir em 4 entregas. Cada uma é validável de forma independente.
-
----
-
-## Entrega 1 — Correções críticas (PRIORIDADE MÁXIMA)
-
-**Foco: destravar SMI/SMV e estabilizar navegação/autenticação.**
-
-1. **Bug SMI/SMV não abre**
-   - Investigar `/admin/maintenance` e `/admin/maintenance/$id` (route tree, RLS, casts incorretos do supabase em `admin.maintenance.tsx`).
-   - Remover os `as never as ...` que estão escondendo erros de tipo e podem estar quebrando a query.
-   - Garantir que `Link to="/admin/maintenance/$id" params={{ id: "new" }}` resolva corretamente (a rota usa `$id`, então "new" precisa ser tratado no componente).
-   - Validar RLS em `maintenance_orders` para admin/mechanic.
-   - Validar bucket `maintenance-signatures` e upload.
-
-2. **Estabilidade geral**
-   - Auth: revisar `auth.tsx` (race condition entre `getSession` e `onAuthStateChange`, roles carregando depois do render).
-   - Loading states corretos (sem tela branca / infinite spinner) em rotas admin/mechanic.
-   - Sidebar: verificar links quebrados, conflito de perfis.
-   - Corrigir tela branca/erros de sessão reportados.
-
-3. **Rodapé com crédito**
-   - "Desenvolvido por Julia Ramos" em todas as áreas.
-
-**Entregável:** SMI/SMV abrindo, criando, editando e fechando ordens. Login estável para todos os perfis.
+Entrega em **5 rodadas** sequenciais. Cada rodada termina com migração aplicada + UI atualizada e fica testável antes da próxima.
 
 ---
 
-## Entrega 2 — Perfil Mecânico (independente do Motorista)
+## Rodada 1 — Corrigir anexo de fotos (urgente)
 
-1. **Migração:**
-   - `profiles.terminated_at`, `profiles.terminated_by`, `profiles.termination_reason` (baixa de motorista).
-   - Trigger/RLS para bloquear login de motorista desligado.
-   - Mecânico passa a ter perfil próprio (não cria registro em motoristas; trigger `handle_new_user` ajustado).
-   - `maintenance_orders`: adicionar `started_at`, `finished_at`, ampliar enum de status para `aberta | em_andamento | aguardando_peca | finalizada`.
+Causa: o código de `mechanic.tsx` referencia `public.maintenance_photos`, mas a migração anterior criou a tabela com colunas diferentes do que o código espera, e o schema cache do PostgREST não a enxerga.
 
-2. **Painel do mecânico (`/mechanic`) reformulado:**
-   - Checklists do dia + histórico com filtros (data, placa, motorista, status).
-   - Ordens: criar, editar, atualizar status, observações técnicas, anexar fotos, timestamps automáticos.
-   - Histórico do veículo com falhas recorrentes.
-   - Sem acesso a cadastros administrativos.
+- Migração:
+  - `CREATE TABLE IF NOT EXISTS public.maintenance_photos` com: `id`, `maintenance_order_id` (FK → `maintenance_orders.id` ON DELETE CASCADE), `file_name`, `file_url` (caminho no bucket), `photo_type` (enum `falha|execucao|conclusao`), `description`, `created_by` (uuid), `created_at`.
+  - GRANT para `authenticated` e `service_role`.
+  - RLS: SELECT para admin/mechanic/viewer; INSERT/UPDATE/DELETE para mechanic dono + admin.
+  - `NOTIFY pgrst, 'reload schema'` no fim para forçar reload do cache.
+- Bucket `maintenance-photos` já existe — só revalidar policies de `storage.objects`.
+- Ajustar `src/routes/mechanic.tsx` e `src/lib/maintenance.ts` para usar os nomes corretos das colunas (`maintenance_order_id`, `file_url`, `photo_type`, `description`).
 
-3. **Cadastro independente de mecânico** (na aba Equipe do admin) — sem vínculo com tabela de motoristas.
+## Rodada 2 — Exclusão soft + Lixeira de OS
 
----
+- Migração em `maintenance_orders`:
+  - `deleted_at timestamptz`, `deleted_by uuid`, `delete_reason text`.
+  - Atualizar policies SELECT existentes para filtrar `deleted_at IS NULL` por padrão.
+  - Nova policy `admin read deleted` permitindo admin enxergar registros com `deleted_at IS NOT NULL`.
+  - Apenas admin pode `UPDATE` setando `deleted_at` (soft delete) e `DELETE` físico (purge).
+- UI:
+  - Botão "Excluir OS" em `admin.maintenance.$id.tsx` (somente admin) → modal pedindo motivo obrigatório → soft delete.
+  - Nova rota `src/routes/admin.maintenance.trash.tsx`: lista OSs excluídas com filtros (data, placa, número, usuário que excluiu); ações **Restaurar** (limpa `deleted_at`) e **Excluir definitivamente** (DELETE físico com confirmação dupla).
+  - Item "Lixeira" no `admin-sidebar.tsx`, visível só para admin.
+  - Retenção indefinida (sem auto-purge).
 
-## Entrega 3 — Perfil Consulta + Dashboard Executivo
+## Rodada 3 — Perfil Consulta somente leitura
 
-1. **Área `/viewer` (ou reaproveitando `/admin` com guard de leitura):**
-   - Layout dedicado read-only.
-   - Consultas: checklists do dia, histórico, ordens, veículos, motoristas.
-   - Timeline da manutenção (quem abriu, quem concluiu, datas, observações).
-   - Filtros: placa, frota, mecânico, status, data, tipo.
-   - Bloquear todos os botões de edição/exclusão no frontend e validar no backend (RLS).
+- `admin-sidebar.tsx`: para `isViewer && !isAdmin` mostrar apenas "Checklists" e "Histórico". Esconder Veículos, Motoristas, Equipe, Manutenção, Lixeira, Dashboard.
+- Em `admin.tsx`: redirecionar viewer que tenta acessar rotas proibidas para `/admin/checklists`.
+- Página `admin.checklists.tsx`: garantir filtros por placa, motorista, data, frota/base.
+- Exportações (ambas com fotos):
+  - **PDF**: usar `src/lib/admin-pdf.ts` para gerar relatório de checklists incluindo as fotos anexadas (signed URLs do bucket `checklist-photos`).
+  - **Excel**: adicionar `xlsx` (`bun add xlsx`) + botão "Exportar Excel" listando checklists filtrados; fotos vão como links clicáveis na coluna "Anexos".
+- Remover qualquer botão de editar/criar/excluir do viewer (auditoria visual de cada componente que ele acessa).
 
-2. **Dashboard executivo no `/admin`:**
-   - Cards: veículos parados, manutenções em aberto, checklists pendentes, falhas recorrentes, top veículos com manutenção, indisponíveis, CNHs vencendo.
-   - Exportação de relatórios.
+## Rodada 4 — Perfil Eletricista + função unificada
 
----
+- Enum `app_role`: adicionar valor `'electrician'`.
+- `profiles.role_function` (enum `driver_function`) já existe — adicionar valores `'eletricista'` e `'motorista_eletricista'` se faltarem.
+- `admin.drivers.tsx` / `admin.team.tsx`: campo **Função** com opções Motorista / Eletricista / Motorista e Eletricista. Ao salvar, gravar `role_function` e sincronizar `user_roles` (driver e/ou electrician conforme função).
+- Login: após autenticar, se `roles` inclui driver+electrician, redirecionar para `/select-role` (novo) com radio Motorista/Eletricista; escolha guardada em `localStorage` + contexto Auth, alterando menus e checklist exibido. Se só uma função, pular tela.
+- `useAuth`: expor `activeFunction` e `setActiveFunction`.
 
-## Entrega 4 — Cadastro de Condutores + Alertas CNH + Baixa
+## Rodada 5 — Checklist do cesto aéreo + OS por falha
 
-1. **Nova interface dedicada de condutores** (`/admin/drivers` reformulada):
-   - Tela inicial enxuta: botão de acesso, contagem de ativos/inativos, alertas CNH.
-   - Cadastro completo (nome, CPF, telefone, empresa, cargo, admissão, CNH, categoria, validade).
-   - Foto da CNH usada como foto do perfil (visível apenas para admin).
-   - Filtros e exportação de relatórios.
+Aguarda o anexo com os itens (você confirmou que vai enviar).
 
-2. **Sistema de alertas CNH automático:**
-   - Migração: view/função SQL que calcula faixa (90/60/30/vencida).
-   - Notificações no dashboard e em uma nova aba de notificações.
-   - (Opcional) cron diário via `/api/public/cron/cnh-alerts`.
-
-3. **Baixa de motoristas:**
-   - Botão "Desligar motorista" com motivo.
-   - Registro automático de data/hora/responsável.
-   - Bloqueio de login para desligados, mas histórico preservado.
-   - Botão de excluir (admin) com confirmação dupla.
+- Seed do template no banco:
+  - `checklist_templates` com `vehicle_type='cesto_aereo'` (adicionar valor ao enum se necessário) e `name='Checklist Cesto Aéreo'`.
+  - `checklist_categories` + `checklist_items` conforme PDF/imagem.
+- `checklist_responses`: já tem `status`, `observation`, `photo_url`. Confirmar que a UI permite os 3 estados (Conforme / Não Conforme / Não Aplicável) — hoje só tem 2. Adicionar valor `'nao_aplicavel'` ao enum de status se faltar.
+- Frontend de checklist (lado motorista/eletricista):
+  - Escolher template automaticamente pela `activeFunction`: motorista → templates de veículo; eletricista → template "Cesto Aéreo".
+  - Cada item: radio Conforme/NC/NA, textarea observação, upload de foto (bucket `checklist-photos`).
+  - Registrar data, hora, usuário, veículo, equipamento (campo novo `equipment_id` opcional em `checklists`).
+- Histórico exclusivo do eletricista: filtro em `admin.checklists.tsx` por `template.vehicle_type='cesto_aereo'` quando viewer/admin abrir aba "Cesto Aéreo".
+- Abertura de OS por falha no cesto: reaproveitar o fluxo "Abrir OS" do mechanic.tsx; quando o checklist origem for de cesto, pré-preencher também `equipment_id` e as fotos anexadas viram fotos categoria `falha` da nova OS.
 
 ---
 
 ## Detalhes técnicos relevantes
 
-- **Banco:** migrações novas, sem reescrever as antigas. Cada migração inclui GRANTs + RLS.
-- **Permissões:** `has_role(uid, role)` (já existe) usado em todos os policies. Frontend usa guards em `admin.tsx` + novos guards em `mechanic.tsx` / `viewer.tsx`.
-- **Performance:** queries com `select` específico (não `*`), índices em `created_at`, `vehicle_id`, `driver_id`, `status`. Realtime ativado apenas onde necessário.
-- **Quebra de arquivos grandes:** `admin.drivers.tsx` e `admin.maintenance.$id.tsx` serão divididos em componentes em `src/components/admin/`.
-- **Stack mantida:** TanStack Start, Supabase via `createServerFn` quando precisar de service role, shadcn/ui.
+- Todas as migrações seguem padrão: CREATE → GRANT → ENABLE RLS → POLICIES, e fazem `NOTIFY pgrst, 'reload schema'` quando alteram tabela referenciada pelo app.
+- Roles checadas via `has_role(auth.uid(), 'admin'::app_role)` (não duplicar SELECT em tabela própria).
+- Adicionar `xlsx` via `bun add xlsx` na Rodada 3.
+- Nenhum dado físico é apagado de OS sem ação admin explícita na Lixeira.
+- `select-role` é client-only (`ssr: false`).
 
----
+## O que preciso de você
 
-## Pergunta antes de começar
-
-Posso seguir direto com a **Entrega 1** (que destrava SMI/SMV e estabiliza o sistema) e depois cada entrega seguinte requer sua aprovação? Ou prefere que eu rode **as 4 entregas em sequência sem pausar**?
-
-Recomendo começar pela Entrega 1 e validar antes de prosseguir — assim você consegue testar o módulo crítico imediatamente.
+1. Confirmar para iniciar a Rodada 1 imediatamente.
+2. Anexar o documento do checklist do cesto aéreo antes da Rodada 5 (pode anexar agora, eu uso quando chegar lá).
