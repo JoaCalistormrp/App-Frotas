@@ -544,6 +544,7 @@ export type Database = {
           phone: string | null
           role_function: Database["public"]["Enums"]["driver_function"] | null
           unlock_card: string | null
+          driver_active: boolean
           updated_at: string
         }
         Insert: {
@@ -562,6 +563,7 @@ export type Database = {
           phone?: string | null
           role_function?: Database["public"]["Enums"]["driver_function"] | null
           unlock_card?: string | null
+          driver_active?: boolean
           updated_at?: string
         }
         Update: {
@@ -580,6 +582,7 @@ export type Database = {
           phone?: string | null
           role_function?: Database["public"]["Enums"]["driver_function"] | null
           unlock_card?: string | null
+          driver_active?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -715,7 +718,7 @@ export type Database = {
       next_order_number: { Args: { _base: string }; Returns: string }
     }
     Enums: {
-      app_role: "admin" | "driver" | "viewer" | "mechanic"
+      app_role: "admin" | "driver" | "viewer" | "mechanic" | "master"
       checklist_status: "in_progress" | "completed"
       driver_function:
         | "diretor"
@@ -725,6 +728,8 @@ export type Database = {
       maintenance_photo_category: "falha" | "execucao" | "conclusao"
       maintenance_status:
         | "pendente"
+        | "aprovada"
+        | "negada"
         | "em_manutencao"
         | "solucionado"
         | "aberta"
@@ -873,7 +878,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "driver", "viewer", "mechanic"],
+      app_role: ["admin", "driver", "viewer", "mechanic", "master"],
       checklist_status: ["in_progress", "completed"],
       driver_function: [
         "diretor",
@@ -884,6 +889,8 @@ export const Constants = {
       maintenance_photo_category: ["falha", "execucao", "conclusao"],
       maintenance_status: [
         "pendente",
+        "aprovada",
+        "negada",
         "em_manutencao",
         "solucionado",
         "aberta",

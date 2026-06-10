@@ -15,6 +15,7 @@ type Driver = {
   cnh_category: string | null; cnh_expires_at: string | null; cnh_file_url: string | null;
   cnh_photo_url: string | null; phone: string | null; company: string | null;
   base: string | null; role_function: string | null; unlock_card: string | null;
+  driver_active?: boolean | null;
   cnh_renewal_history?: Array<{ date: string; new_expiry: string | null; note?: string }> | null;
 };
 
@@ -46,7 +47,7 @@ function DriversPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("profiles").select("*").order("full_name");
+    const { data } = await supabase.from("profiles").select("*").eq("driver_active", true).order("full_name");
     setList((data ?? []) as unknown as Driver[]);
     setLoading(false);
   };
@@ -66,8 +67,8 @@ function DriversPage() {
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="size-6" />Motoristas e equipe</h1>
-        <p className="text-sm text-muted-foreground">Cadastro completo, função, CNH e cartão de desbloqueio</p>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="size-6" />Motoristas ativos</h1>
+        <p className="text-sm text-muted-foreground">Apenas motoristas com status ativo no cadastro de usuário são exibidos aqui.</p>
       </div>
 
       <Card className="p-4 grid grid-cols-2 md:grid-cols-4 gap-2">

@@ -6,12 +6,14 @@ type AuthCtx = {
   user: User | null;
   session: Session | null;
   isAdmin: boolean;
+  isMaster: boolean;
   isViewer: boolean;
   isMechanic: boolean;
   roles: string[];
   loading: boolean;
   signIn: (cpf: string, password: string) => Promise<{ error?: string }>;
   signInEmail: (email: string, password: string) => Promise<{ error?: string }>;
+  signInUnified: (cpfOrEmail: string, password: string) => Promise<{ error?: string }>;
   signUp: (fullName: string, cpf: string, cnh: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 };
@@ -22,16 +24,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMaster, setIsMaster] = useState(false);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadRoles = async (uid: string | null) => {
-      if (!uid) { setRoles([]); setIsAdmin(false); return; }
+      if (!uid) { setRoles([]); setIsAdmin(false); setIsMaster(false); return; }
       const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
       const rs = (data ?? []).map((r) => r.role as string);
       setRoles(rs);
-      setIsAdmin(rs.includes("admin"));
+      setIsAdmin(rs.includes("admin") || rs.includes("master"));
+      setIsMaster(rs.includes("master"));
     };
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
@@ -56,6 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message };
   };
+  const signInUnified = async (cpfOrEmail: string, password: string) => {
+    // Detecta se é CPF ou Email
+    const isCpf = /^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$/.test(cpfOrEmail.replace(/\D/g, ""));
+    const email = isCpf ? cpfToEmail(cpfOrEmail) : cpfOrEmail;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message };
+  };
   const signUp = async (fullName: string, cpf: string, cnh: string, password: string) => {
     const cleanCpf = cpf.replace(/\D/g, "");
     const cleanCnh = cnh.replace(/\D/g, "");
@@ -73,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isViewer = roles.includes("viewer");
   const isMechanic = roles.includes("mechanic");
-  return <Ctx.Provider value={{ user, session, isAdmin, isViewer, isMechanic, roles, loading, signIn, signInEmail, signUp, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, roles, loading, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => {

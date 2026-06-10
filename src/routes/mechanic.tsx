@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Wrench, LogOut, CheckCircle2, Clock, AlertCircle, X as XIcon, Camera, Trash2, ClipboardList, FilePlus } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
-import { STATUS_OPTIONS, statusLabel, statusTone, NEEDS_LABOR_BUDGET, NEEDS_PARTS_BUDGET, IS_DONE_STATUS, type MaintenanceStatus } from "@/lib/maintenance";
+import { FINAL_STATUSES, STATUS_OPTIONS, statusLabel, statusTone, NEEDS_LABOR_BUDGET, NEEDS_PARTS_BUDGET, IS_DONE_STATUS, type MaintenanceStatus } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/mechanic")({ component: MechanicPage });
 
@@ -46,7 +46,7 @@ function MechanicPage() {
       .select("*, vehicles(plate, model)")
       .order("created_at", { ascending: false });
     if (statusFilter === "abertos") {
-      q = q.in("status", ["aberta", "pendente", "em_analise", "orcando_mao_obra", "orcando_pecas", "aguardando_aprovacao", "aguardando_pecas", "em_execucao", "em_manutencao", "teste_final"]);
+      q = q.in("status", ["aberta", "pendente", "em_analise", "orcando_mao_obra", "orcando_pecas", "aguardando_aprovacao", "aprovada", "aguardando_pecas", "em_execucao", "em_manutencao", "teste_final"]);
     } else if (statusFilter === "concluidas") {
       q = q.in("status", ["finalizada", "solucionado"]);
     } else if (statusFilter !== "todos") {
@@ -298,7 +298,7 @@ function ChecklistsPanel({ onOpenOSFromChecklist }: { onOpenOSFromChecklist: (c:
 }
 
 function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
-  const { user } = useAuth();
+  const { user, isMaster } = useAuth();
   const [status, setStatus] = useState(order.status);
   const [solution, setSolution] = useState(order.solution_description ?? "");
   const [items, setItems] = useState(order.items_replaced ?? "");
@@ -444,7 +444,7 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           <div><Label className="text-xs">Status</Label>
             <select value={status} onChange={(e) => setStatus(e.target.value as MaintenanceStatus)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-              {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {STATUS_OPTIONS.filter((o) => isMaster || !FINAL_STATUSES.includes(o.value as any) || o.value === status).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div><Label className="text-xs">KM atual</Label><Input value={km} onChange={(e) => setKm(e.target.value)} type="number" /></div>

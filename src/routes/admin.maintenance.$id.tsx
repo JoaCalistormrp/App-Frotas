@@ -7,12 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, FileDown, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileDown, Save, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding, BASE_CODES } from "@/lib/admin-pdf";
 import { useAuth } from "@/lib/auth";
-import { STATUS_OPTIONS, statusLabel, statusTone, type MaintenanceStatus } from "@/lib/maintenance";
+import { FINAL_STATUSES, STATUS_OPTIONS, statusLabel, statusTone, type MaintenanceStatus } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/admin/maintenance/$id")({ component: OrderForm });
 
@@ -28,24 +28,31 @@ type Order = {
   labor_description?: string; labor_hours?: number | null; labor_cost?: number | null;
   parts_needed?: string; parts_supplier?: string; parts_cost?: number | null;
   final_observation?: string;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  denial_reason?: string | null;
 };
 
 function OrderForm() {
   const { id } = useParams({ from: "/admin/maintenance/$id" });
   const nav = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isMaster } = useAuth();
   const isNew = id === "new";
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [denyBusy, setDenyBusy] = useState(false);
   const [order, setOrder] = useState<Order>({
     order_type: "SMI", base_code: "VOT", vehicle_id: null, driver_id: null, checklist_id: null,
     failure_description: "", service_type: "", workshop: "", status: "pendente", observations: "",
     maintenance_category: "corretiva", validade_oleo: "", km_atual: null,
     combustivel_chegada: "", data_entrada: "", hora_entrada: "",
     data_saida: "", hora_saida: "", mod_carro: "", solution_description: "", items_replaced: "",
+    denial_reason: null,
   });
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Array<{ id: string; plate: string }>>([]);
   const [drivers, setDrivers] = useState<Array<{ id: string; full_name: string | null }>>([]);
   const [busy, setBusy] = useState(false);
+  const [savedStatus, setSavedStatus] = useState<MaintenanceStatus>("pendente");
   const [evolutions, setEvolutions] = useState<Array<{ id: string; created_at: string; status: string | null; observation: string; user_id: string | null; user_name?: string | null }>>([]);
 
   useEffect(() => { (async () => {
@@ -79,9 +86,70 @@ function OrderForm() {
         .eq("id", id)
         .maybeSingle();
       if (error) { toast.error("Erro ao carregar ordem: " + error.message); return; }
-      if (data) { setOrder(data as unknown as Order); setOrderNumber(data.order_number); }
+      if (data) { setOrder({ ...(data as unknown as Order), denial_reason: (data as any).denial_reason ?? null }); setOrderNumber(data.order_number); setSavedStatus((data as any).status as MaintenanceStatus ?? "pendente"); }
     }
   })(); }, [id, isNew]);
+
+  const approveOrder = async () => {
+    if (!user || !isMaster || isNew || order.status !== "aguardando_aprovacao") return;
+    if (!confirm("Aprovar esta SMV/SMI e liberar a ordem para atualização?")) return;
+    setApprovalBusy(true);
+    try {
+      const approvedAt = new Date().toISOString();
+      const { error } = await supabase.from("maintenance_orders").update({
+        status: "aprovada",
+        approved_at: approvedAt,
+        approved_by: user.id,
+        denial_reason: null,
+      } as never).eq("id", id);
+      if (error) throw new Error(error.message);
+      const { error: evoErr } = await supabase.from("maintenance_evolutions").insert({
+        order_id: id,
+        user_id: user.id,
+        status: "aprovada",
+        observation: "SMV/SMI aprovada pelo Master.",
+      });
+      if (evoErr) throw new Error(evoErr.message);
+      setOrder({ ...order, status: "aprovada", approved_at: approvedAt, approved_by: user.id, denial_reason: null });
+      setSavedStatus("aprovada");
+      toast.success("Ordem aprovada com sucesso");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const denyOrder = async () => {
+    if (!user || !isMaster || isNew || order.status !== "aguardando_aprovacao") return;
+    const reason = order.denial_reason?.trim();
+    if (!reason) { toast.error("Insira o motivo da negação antes de negar a ordem."); return; }
+    if (!confirm("Negar esta SMV/SMI e marcar como OS negada?")) return;
+    setDenyBusy(true);
+    try {
+      const { error } = await supabase.from("maintenance_orders").update({
+        status: "negada",
+        denial_reason: reason,
+      } as never).eq("id", id);
+      if (error) throw new Error(error.message);
+      const { error: evoErr } = await supabase.from("maintenance_evolutions").insert({
+        order_id: id,
+        user_id: user.id,
+        status: "negada",
+        observation: `SMV/SMI negada pelo Master. Motivo: ${reason}`,
+      });
+      if (evoErr) throw new Error(evoErr.message);
+      setOrder({ ...order, status: "negada", denial_reason: reason });
+      setSavedStatus("negada");
+      toast.success("OS negada com sucesso");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDenyBusy(false);
+    }
+  };
+
+  const isApprovalLocked = savedStatus === "aguardando_aprovacao";
 
   const save = async () => {
     setBusy(true);
@@ -104,6 +172,8 @@ function OrderForm() {
           .update(order as never)
           .eq("id", id);
         if (error) throw new Error(error.message);
+        // mark saved status after successful update
+        setSavedStatus(order.status);
         toast.success("Atualizada");
       }
     } catch (e) { toast.error((e as Error).message); }
@@ -194,14 +264,30 @@ function OrderForm() {
         </div>
         <div className="flex gap-2">
           {!isNew && <Button variant="outline" onClick={exportPdf}><FileDown className="size-4" />PDF</Button>}
+          {!isNew && isMaster && order.status === "aguardando_aprovacao" && (
+            <div className="flex flex-wrap gap-2 items-end">
+              <Button variant="secondary" onClick={approveOrder} disabled={approvalBusy || denyBusy}>
+                <CheckCircle2 className="size-4" />{approvalBusy ? "Aprovando..." : "Aprovar SMV/SMI"}
+              </Button>
+              <Button variant="destructive" onClick={denyOrder} disabled={approvalBusy || denyBusy}>
+                {denyBusy ? "Negando..." : "Negar SMV/SMI"}
+              </Button>
+            </div>
+          )}
           {!isNew && isAdmin && (
             <Button variant="destructive" onClick={moveToTrash}><Trash2 className="size-4" />Excluir</Button>
           )}
-          <Button onClick={save} disabled={busy}><Save className="size-4" />{busy ? "..." : "Salvar"}</Button>
+          <Button onClick={save} disabled={busy || approvalBusy || isApprovalLocked}><Save className="size-4" />{busy ? "..." : "Salvar"}</Button>
         </div>
       </div>
+      {!isNew && order.status === "aguardando_aprovacao" && (
+        <div className="rounded-md border border-yellow-200 bg-yellow-500/10 p-4 text-sm text-yellow-900">
+          Esta ordem aguarda aprovação de um usuário <strong>Master</strong>. O formulário está bloqueado até a aprovação; apenas o Master pode aprovar ou negar.
+        </div>
+      )}
 
-      <Card className="p-5 grid grid-cols-2 md:grid-cols-3 gap-3">
+      <fieldset disabled={isApprovalLocked} className={isApprovalLocked ? "space-y-4 opacity-70" : "space-y-4"}>
+        <Card className="p-5 grid grid-cols-2 md:grid-cols-3 gap-3">
         <div><Label className="text-xs">Tipo *</Label>
           <select value={order.order_type} onChange={(e) => setOrder({ ...order, order_type: e.target.value as "SMI" | "SMV" })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
             <option value="SMI">SMI — Interna</option><option value="SMV">SMV — Externa</option>
@@ -214,7 +300,7 @@ function OrderForm() {
         </div>
         <div><Label className="text-xs">Status</Label>
           <select value={order.status} onChange={(e) => setOrder({ ...order, status: e.target.value as MaintenanceStatus })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {STATUS_OPTIONS.filter((o) => isMaster || !FINAL_STATUSES.includes(o.value as any) || o.value === order.status).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div><Label className="text-xs">Veículo</Label>
@@ -247,6 +333,21 @@ function OrderForm() {
         <div className="md:col-span-3"><Label className="text-xs">Itens trocados</Label><Textarea rows={2} value={order.items_replaced ?? ""} onChange={(e) => setOrder({ ...order, items_replaced: e.target.value })} /></div>
         <div className="md:col-span-3"><Label className="text-xs">Observações</Label><Textarea rows={3} value={order.observations} onChange={(e) => setOrder({ ...order, observations: e.target.value })} /></div>
       </Card>
+      </fieldset>
+
+      {!isNew && order.status === "aguardando_aprovacao" && isMaster && (
+        <Card className="p-5">
+          <div className="mb-2 font-semibold">Motivo da negação</div>
+          <Textarea rows={3} value={order.denial_reason ?? ""} onChange={(e) => setOrder({ ...order, denial_reason: e.target.value })} placeholder="Informe o motivo que será salvo quando a ordem for negada." />
+        </Card>
+      )}
+
+      {!isNew && order.status === "negada" && (
+        <Card className="p-5 border-rose-200 bg-rose-50">
+          <div className="font-semibold mb-2">Motivo da OS negada</div>
+          <p className="text-sm whitespace-pre-line">{order.denial_reason ?? "—"}</p>
+        </Card>
+      )}
 
       {!isNew && (
         <Card className="p-5">

@@ -79,27 +79,19 @@ function Index() {
 }
 
 function AuthScreen() {
-  const { signIn, signUp, signInEmail } = useAuth();
-  const [tab, setTab] = useState<"driver" | "admin" | "mechanic">("driver");
-  const [mode, setMode] = useState<"in" | "up">("in");
-  const [cpf, setCpf] = useState("");
-  const [cnh, setCnh] = useState("");
-  const [email, setEmail] = useState("");
+  const { signInUnified } = useAuth();
+  const [credential, setCredential] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!credential.trim()) return toast.error("Informe CPF ou E-mail");
+    if (!password.trim()) return toast.error("Informe a senha");
     setBusy(true);
-    const r = tab === "admin" || tab === "mechanic"
-      ? await signInEmail(email, password)
-      : mode === "in"
-        ? await signIn(cpf, password)
-        : await signUp(name, cpf, cnh, password);
+    const r = await signInUnified(credential, password);
     setBusy(false);
     if (r.error) toast.error(r.error);
-    else if (mode === "up") toast.success("Conta criada! Você já pode entrar.");
   };
 
   return (
@@ -112,40 +104,30 @@ function AuthScreen() {
             <p className="text-xs text-muted-foreground">Inspeção veicular digital</p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
-          <button type="button" onClick={() => setTab("driver")}
-            className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition ${tab === "driver" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
-            <UserIcon className="size-3.5" />Motorista
-          </button>
-          <button type="button" onClick={() => setTab("admin")}
-            className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition ${tab === "admin" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
-            <ShieldCheck className="size-3.5" />Admin
-          </button>
-          <button type="button" onClick={() => setTab("mechanic")}
-            className={`h-9 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition ${tab === "mechanic" ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
-            <Wrench className="size-3.5" />Mecânico
-          </button>
-        </div>
         <form onSubmit={submit} className="space-y-3">
-          {tab === "driver" && mode === "up" && (
-            <>
-              <div><Label>Nome completo</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
-              <div><Label>CNH (nº de registro)</Label><Input value={cnh} onChange={(e) => setCnh(e.target.value)} required /></div>
-            </>
-          )}
-          {tab === "driver"
-            ? <div><Label>CPF</Label><Input value={cpf} onChange={(e) => setCpf(e.target.value)} required placeholder="000.000.000-00" /></div>
-            : <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder={tab === "mechanic" ? "mecanico@empresa.com" : "admin@empresa.com"} /></div>}
-          <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} /></div>
+          <div>
+            <Label>CPF ou E-mail</Label>
+            <Input 
+              value={credential} 
+              onChange={(e) => setCredential(e.target.value)} 
+              required 
+              placeholder="000.000.000-00 ou seu@email.com" 
+            />
+          </div>
+          <div>
+            <Label>Senha</Label>
+            <Input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
+              minLength={6} 
+            />
+          </div>
           <Button type="submit" className="w-full h-11 text-base" disabled={busy}>
-            {busy ? "..." : tab === "admin" ? "Entrar como admin" : tab === "mechanic" ? "Entrar como mecânico" : mode === "in" ? "Entrar" : "Criar conta"}
+            {busy ? "Entrando…" : "Entrar"}
           </Button>
         </form>
-        {tab === "driver" && (
-          <button onClick={() => setMode(mode === "in" ? "up" : "in")} className="text-sm text-primary w-full">
-            {mode === "in" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
-          </button>
-        )}
         <div className="pt-2 border-t text-center">
           <Link to="/download" className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1">
             📱 Baixar aplicativo para o seu dispositivo
