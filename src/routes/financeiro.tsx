@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import {
   TrendingDown, Search, CheckCircle2, Link2, FileText, Truck,
   Calendar, Wrench, DollarSign, AlertCircle, Loader2, X, Plus, Flag,
-  SlidersHorizontal,
+  SlidersHorizontal, Unlink2,
 } from "lucide-react";
 import { statusLabel, statusTone } from "@/lib/maintenance";
 
@@ -224,6 +224,10 @@ function FinanceiroContent() {
   // Detail sheet
   const [detailOrder, setDetailOrder]   = useState<FinalizedOrder | null>(null);
 
+  // Desvincular OS confirmation
+  const [unlinkOrder, setUnlinkOrder]   = useState<FinalizedOrder | null>(null);
+  const [unlinking, setUnlinking]       = useState(false);
+
   // ── Filtered lists ─────────────────────────────────────────────────────────
   const filteredPending = useMemo(
     () => pending.filter((o) => matchesFilters(filtersP, o.order_number, o.links)),
@@ -375,6 +379,32 @@ function FinanceiroContent() {
     const { error } = await (supabase as any).from("maintenance_financial_links").delete().eq("id", linkId);
     if (error) { toast.error("Erro ao remover: " + error.message); return; }
     loadPending();
+  };
+
+  const unlinkOS = async () => {
+    if (!unlinkOrder) return;
+    setUnlinking(true);
+    const osId = unlinkOrder.maintenance_order_id;
+
+    const { error: e1 } = await (supabase as any)
+      .from("maintenance_financial_links").delete().eq("maintenance_order_id", osId);
+    if (e1) { toast.error("Erro ao remover documentos: " + e1.message); setUnlinking(false); return; }
+
+    const { error: e2 } = await (supabase as any)
+      .from("maintenance_os_link_finalized").delete().eq("maintenance_order_id", osId);
+    if (e2) { toast.error("Erro ao remover vínculo: " + e2.message); setUnlinking(false); return; }
+
+    const { error: e3 } = await supabase
+      .from("maintenance_orders")
+      .update({ status: "aprovada" })
+      .eq("id", osId);
+    if (e3) toast.error("Vínculo removido, mas erro ao reverter status: " + e3.message);
+
+    toast.success(`OS ${unlinkOrder.order?.order_number} desvinculada e revertida para Aprovada.`);
+    setUnlinkOrder(null);
+    setUnlinking(false);
+    loadPending();
+    loadFinalized();
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -618,9 +648,20 @@ function FinanceiroContent() {
                     <span className="text-[10px]">Finalizado em {fmtDate(f.finalized_at)}</span>
                   </div>
                 </div>
-                <div className="shrink-0 text-right">
-                  <div className="text-sm font-bold text-emerald-600">{brl(sumLinks(f.links))}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">valor total</div>
+                <div className="shrink-0 flex flex-col items-end gap-2">
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-emerald-600">{brl(sumLinks(f.links))}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">valor total</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-6 px-2 gap-1 border-orange-400/60 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950/30"
+                    onClick={(e) => { e.stopPropagation(); setUnlinkOrder(f); }}
+                  >
+                    <Unlink2 className="size-3" />
+                    Desvincular
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -820,6 +861,49 @@ function FinanceiroContent() {
           })()}
         </SheetContent>
       </Sheet>
+
+      {/* ── Dialog: Confirmar Desvinculação ────────────────────────────────── */}
+      <Dialog open={!!unlinkOrder} onOpenChange={(open) => { if (!open && !unlinking) setUnlinkOrder(null); }}>
+        <DialogContent className="w-[95vw] max-w-sm sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Unlink2 className="size-4 text-orange-500" />
+              Desvincular OS do Financeiro
+            </DialogTitle>
+            <DialogDescription>
+              {unlinkOrder && (
+                <>
+                  A OS <span className="font-bold text-foreground">{unlinkOrder.order?.order_number}</span>
+                  {" "}será desvinculada do financeiro:{" "}
+                  <strong>{unlinkOrder.links.length} documento(s)</strong> removido(s)
+                  e o status revertido para <strong>Aprovada</strong>.
+                  <br /><br />
+                  Esta ação não pode ser desfeita.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              disabled={unlinking}
+              onClick={() => setUnlinkOrder(null)}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={unlinking}
+              onClick={unlinkOS}
+              className="w-full sm:w-auto gap-2"
+            >
+              {unlinking ? <Loader2 className="size-4 animate-spin" /> : <Unlink2 className="size-4" />}
+              {unlinking ? "Desvinculando…" : "Confirmar Desvinculação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

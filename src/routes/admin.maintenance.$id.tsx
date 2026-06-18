@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, FileDown, Save, Trash2, XIcon, Search, Paperclip } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileDown, Save, Trash2, XIcon, Search, Paperclip, AlertTriangle } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding, BASE_CODES } from "@/lib/admin-pdf";
@@ -86,7 +86,7 @@ function BudgetUploadModal({ onClose, onConfirm, busy }: { onClose: () => void, 
 }
 
 // --- MICRO-COMPONENTE: Janela de Exclusão (Resolve o erro do botão morto) ---
-function DeleteOSModal({ onClose, onConfirm, busy }: { onClose: () => void, onConfirm: (reason: string) => void, busy: boolean }) {
+function DeleteOSModal({ onClose, onConfirm, busy, isFinalized }: { onClose: () => void, onConfirm: (reason: string) => void, busy: boolean, isFinalized: boolean }) {
   const [reason, setReason] = useState("");
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 grid place-items-center p-4" onClick={onClose}>
@@ -95,6 +95,12 @@ function DeleteOSModal({ onClose, onConfirm, busy }: { onClose: () => void, onCo
           <h3 className="font-bold text-lg text-destructive flex items-center gap-2"><Trash2 className="size-5" />Mover para a Lixeira</h3>
           <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
         </div>
+        {isFinalized && (
+          <div className="rounded-md border border-orange-300 bg-orange-500/10 p-3 text-xs text-orange-900 dark:text-orange-300 flex gap-2">
+            <AlertTriangle className="size-4 shrink-0 mt-0.5 text-orange-500" />
+            <span>Esta OS está <strong>finalizada</strong>. Ao excluir, o vínculo financeiro será removido automaticamente do módulo Financeiro.</span>
+          </div>
+        )}
         <p className="text-sm text-muted-foreground">Tem certeza que deseja mover esta OS para a lixeira? Informe o motivo abaixo (obrigatório).</p>
         <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo da exclusão..." />
         <div className="flex gap-2 pt-2">
@@ -286,19 +292,34 @@ function OrderForm() {
   const confirmDelete = async (reason: string) => {
     setDeleteBusy(true);
     try {
-      const { error } = await supabase.from("maintenance_orders").update({ 
-        deleted_at: new Date().toISOString(), 
-        deleted_by: user?.id ?? null, 
-        delete_reason: reason.trim() 
+      // OS finalizada: remover vínculos financeiros antes de excluir
+      if (savedStatus === "finalizada") {
+        const { error: e1 } = await (supabase as any)
+          .from("maintenance_financial_links")
+          .delete()
+          .eq("maintenance_order_id", id);
+        if (e1) throw new Error(e1.message);
+
+        const { error: e2 } = await (supabase as any)
+          .from("maintenance_os_link_finalized")
+          .delete()
+          .eq("maintenance_order_id", id);
+        if (e2) throw new Error(e2.message);
+      }
+
+      const { error } = await supabase.from("maintenance_orders").update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: user?.id ?? null,
+        delete_reason: reason.trim()
       } as never).eq("id", id);
-      
+
       if (error) throw new Error(error.message);
-      
+
       toast.success("OS movida para a Lixeira");
       nav({ to: "/admin/maintenance" });
-    } catch (e) { 
-      toast.error((e as Error).message); 
-      setDeleteBusy(false); 
+    } catch (e) {
+      toast.error((e as Error).message);
+      setDeleteBusy(false);
     }
   };
 
@@ -536,6 +557,7 @@ function OrderForm() {
       {showDeleteModal && (
         <DeleteOSModal
           busy={deleteBusy}
+          isFinalized={savedStatus === "finalizada"}
           onClose={() => setShowDeleteModal(false)}
           onConfirm={confirmDelete}
         />

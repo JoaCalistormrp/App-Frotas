@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench, Lock, ArrowRight, Smartphone } from "lucide-react";
+import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench, Lock, ArrowRight, Smartphone, Search, SlidersHorizontal, X as XIcon2 } from "lucide-react";
 import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon, Users, Bell, Upload, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -190,7 +190,7 @@ function AppShell({ onSignOut }: { onSignOut: () => void }) {
   };
   useEffect(() => { load(); }, []);
 
-  if (activeChecklist) return <ChecklistRunner vehicleId={activeChecklist} onClose={() => setActiveChecklist(null)} />;
+  if (activeChecklist) return <ChecklistRunner vehicleId={activeChecklist} onClose={() => setActiveChecklist(null)} onSubmitted={onSignOut} />;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -252,33 +252,109 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
 };
 
 export function VehicleListByCategory({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect: (id: string) => void }) {
-  const grouped = vehicles.reduce<Record<string, Vehicle[]>>((acc, v) => {
+  const [showFilter, setShowFilter] = useState(false);
+  const [search, setSearch] = useState("");
+  const [catFilter, setCatFilter] = useState("");
+
+  const activeCount = (search.trim() ? 1 : 0) + (catFilter ? 1 : 0);
+
+  const q = search.toLowerCase();
+  const filtered = vehicles.filter((v) => {
+    if (catFilter && v.vehicle_type !== catFilter) return false;
+    if (q) return v.plate.toLowerCase().includes(q) || (v.model ?? "").toLowerCase().includes(q);
+    return true;
+  });
+
+  const grouped = filtered.reduce<Record<string, Vehicle[]>>((acc, v) => {
     (acc[v.vehicle_type] ||= []).push(v);
     return acc;
   }, {});
+
   const order = ["PESADOS", "OPERACIONAIS", "CESTO_AEREO", "ADMINISTRATIVO", "MUNCK"];
+  const availableTypes = order.filter((t) => vehicles.some((v) => v.vehicle_type === t));
+
+  const clearFilters = () => { setSearch(""); setCatFilter(""); };
+
   return (
-    <div className="space-y-5">
-      {order.filter((t) => grouped[t]?.length).map((type) => (
-        <div key={type} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{VEHICLE_TYPE_LABELS[type] ?? type}</h3>
-            <span className="text-xs text-muted-foreground">({grouped[type].length})</span>
+    <div className="space-y-3">
+      {/* Barra de topo */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{vehicles.length} veículo(s) disponíveis</p>
+        <Button
+          variant={showFilter ? "secondary" : "outline"}
+          size="sm"
+          className="shrink-0 gap-1.5 relative"
+          onClick={() => setShowFilter((v) => !v)}
+        >
+          <SlidersHorizontal className="size-3.5" />
+          Filtros
+          {activeCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+              {activeCount}
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {/* Painel de filtros (oculto por padrão) */}
+      {showFilter && (
+        <Card className="p-3 border-dashed border-primary/30 bg-primary/[0.02] space-y-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Buscar por placa ou modelo…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-8 text-sm"
+            />
           </div>
-          <div className="grid gap-2">
-            {grouped[type].map((v) => (
-              <button key={v.id} onClick={() => onSelect(v.id)}
-                className="text-left p-4 rounded-xl bg-card border border-border hover:border-primary transition flex items-center justify-between">
-                <div>
-                  <div className="font-bold tracking-wide">{v.plate}</div>
-                  <div className="text-xs text-muted-foreground">{v.model || "—"}{v.base ? ` • ${v.base}` : ""}</div>
-                </div>
-                <div className="text-primary text-sm font-semibold">Iniciar →</div>
-              </button>
+          <div className="flex gap-1.5 flex-wrap">
+            <Button size="sm" variant={catFilter === "" ? "default" : "outline"} onClick={() => setCatFilter("")} className="h-7 text-xs">
+              Todos
+            </Button>
+            {availableTypes.map((t) => (
+              <Button key={t} size="sm" variant={catFilter === t ? "default" : "outline"} onClick={() => setCatFilter(t)} className="h-7 text-xs">
+                {VEHICLE_TYPE_LABELS[t] ?? t}
+              </Button>
             ))}
           </div>
-        </div>
-      ))}
+          {activeCount > 0 && (
+            <div className="flex justify-end">
+              <button type="button" onClick={clearFilters} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                <XIcon2 className="size-3" /> Limpar filtros
+              </button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Resultados */}
+      {filtered.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground py-8">Nenhum veículo encontrado.</p>
+      )}
+
+      <div className="space-y-5">
+        {order.filter((t) => grouped[t]?.length).map((type) => (
+          <div key={type} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{VEHICLE_TYPE_LABELS[type] ?? type}</h3>
+              <span className="text-xs text-muted-foreground">({grouped[type].length})</span>
+            </div>
+            <div className="grid gap-2">
+              {grouped[type].map((v) => (
+                <button key={v.id} onClick={() => onSelect(v.id)}
+                  className="text-left p-4 rounded-xl bg-card border border-border hover:border-primary transition flex items-center justify-between">
+                  <div>
+                    <div className="font-bold tracking-wide">{v.plate}</div>
+                    <div className="text-xs text-muted-foreground">{v.model || "—"}{v.base ? ` • ${v.base}` : ""}</div>
+                  </div>
+                  <div className="text-primary text-sm font-semibold">Iniciar →</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -633,7 +709,34 @@ type Item = { id: string; name: string; category_id: string };
 type Category = { id: string; name: string; sort_order: number };
 type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string; photo: File | null; photoPreview: string | null };
 
-export function ChecklistRunner({ vehicleId, onClose, embedded = false }: { vehicleId: string; onClose: () => void; embedded?: boolean }) {
+function compressImage(file: File, maxPx = 1280, quality = 0.75): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const blobUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error("Falha ao comprimir imagem"));
+          resolve(new File([blob], "photo.jpg", { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        quality,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); reject(new Error("Falha ao carregar imagem")); };
+    img.src = blobUrl;
+  });
+}
+
+export function ChecklistRunner({ vehicleId, onClose, onSubmitted, embedded = false }: { vehicleId: string; onClose: () => void; onSubmitted?: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
@@ -669,12 +772,26 @@ export function ChecklistRunner({ vehicleId, onClose, embedded = false }: { vehi
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], status } }));
   const setObs = (itemId: string, observation: string) =>
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], observation } }));
-  const setPhoto = (itemId: string, file: File | null) => {
-    setResponses((r) => {
-      const prev = r[itemId];
-      if (prev?.photoPreview) URL.revokeObjectURL(prev.photoPreview);
-      return { ...r, [itemId]: { ...prev, photo: file, photoPreview: file ? URL.createObjectURL(file) : null } };
-    });
+  const setPhoto = async (itemId: string, file: File | null) => {
+    if (!file) {
+      setResponses((r) => {
+        const prev = r[itemId];
+        if (prev?.photoPreview) URL.revokeObjectURL(prev.photoPreview);
+        return { ...r, [itemId]: { ...prev, photo: null, photoPreview: null } };
+      });
+      return;
+    }
+    try {
+      const compressed = await compressImage(file);
+      const preview = URL.createObjectURL(compressed);
+      setResponses((r) => {
+        const prev = r[itemId];
+        if (prev?.photoPreview) URL.revokeObjectURL(prev.photoPreview);
+        return { ...r, [itemId]: { ...prev, photo: compressed, photoPreview: preview } };
+      });
+    } catch {
+      toast.error("Não foi possível processar a foto. Tente novamente.");
+    }
   };
 
   const submit = async () => {
@@ -698,11 +815,10 @@ export function ChecklistRunner({ vehicleId, onClose, embedded = false }: { vehi
     for (const i of items) {
       const f = responses[i.id]?.photo;
       if (!f) continue;
-      const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${ck.id}/${i.id}.${ext}`;
+      const path = `${ck.id}/${i.id}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("checklist-photos")
-        .upload(path, f, { upsert: true, contentType: f.type || "image/jpeg" });
+        .upload(path, f, { upsert: true, contentType: "image/jpeg" });
       if (!upErr) photoPaths[i.id] = path;
     }
     const rows = items.map((i) => ({
@@ -715,7 +831,8 @@ export function ChecklistRunner({ vehicleId, onClose, embedded = false }: { vehi
     setBusy(false);
     if (e2) return toast.error(e2.message);
     toast.success("Checklist enviado!");
-    onClose();
+    if (onSubmitted) onSubmitted();
+    else onClose();
   };
 
   if (!vehicle) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
