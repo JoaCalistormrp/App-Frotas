@@ -1,21 +1,36 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, cloudflare (build-only),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... } }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteTsConfigPaths from "vite-tsconfig-paths";
+import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-export default defineConfig({
-  vite: {
+export default defineConfig(async ({ command }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extraPlugins: any[] = [];
+  if (command === "build") {
+    const { nitro } = await import("nitro/vite");
+    extraPlugins.push(nitro({ preset: "vercel" }));
+  }
+
+  return {
     plugins: [
+      viteTsConfigPaths({ projects: ["./tsconfig.json"] }),
+      tailwindcss(),
+      tanstackStart({
+        importProtection: {
+          client: {
+            excludeFiles: ["**/oracle.server.*"],
+          },
+        },
+      }),
+      react(),
       VitePWA({
         registerType: "autoUpdate",
-        // Usa o public/manifest.json existente
         manifest: false,
         workbox: {
           globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
+          globIgnores: ["server/**", "*.bundled.js"],
           navigateFallback: null,
           runtimeCaching: [
             {
@@ -27,6 +42,7 @@ export default defineConfig({
         },
         devOptions: { enabled: false },
       }),
+      ...extraPlugins,
     ],
-  },
+  };
 });
