@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { UserCog, Trash2, KeyRound, Plus, ShieldCheck, Eye, Wrench } from "lucide-react";
+import { UserCog, Trash2, KeyRound, Plus, ShieldCheck, Eye, Wrench, X as XIcon } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import { listStaff, createStaffUser, updateStaffProfile, deleteStaffUser, resetStaffPassword } from "@/lib/staff.functions";
 
@@ -30,7 +33,8 @@ function TeamPage() {
   const reset = useServerFn(resetStaffPassword);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", role: "viewer" as "admin" | "viewer" | "mechanic" | "master" | "driver", driver_active: false });
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState({ full_name: "", email: "", cpf: "", role: "viewer" as "admin" | "viewer" | "mechanic" | "master" | "driver", driver_active: false });
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -43,12 +47,17 @@ function TeamPage() {
 
   if (!isAdmin) return <Navigate to="/admin" />;
 
+  const closeNew = () => {
+    setShowNew(false);
+    setForm({ full_name: "", email: "", cpf: "", role: "viewer", driver_active: false });
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true);
     try {
       await create({ data: form });
-      toast.success("Acesso criado");
-      setForm({ full_name: "", email: "", password: "", role: "viewer", driver_active: false });
+      toast.success("Utilizador criado! A senha inicial é o CPF (apenas números).");
+      closeNew();
       load();
     } catch (e) { toast.error((e as Error).message); }
     finally { setBusy(false); }
@@ -77,35 +86,61 @@ function TeamPage() {
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><UserCog className="size-6" />Equipe & Acessos</h1>
-        <p className="text-sm text-muted-foreground">Cadastro e exibição de todos os usuários, incluindo motoristas ativos.</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><UserCog className="size-6" />Equipe & Acessos</h1>
+          <p className="text-sm text-muted-foreground">Cadastro e exibição de todos os usuários, incluindo motoristas ativos.</p>
+        </div>
+        <Button onClick={() => setShowNew(true)} className="gap-1.5">
+          <Plus className="size-4" /> Novo usuário
+        </Button>
       </div>
 
-      <Card className="p-5">
-        <div className="font-semibold mb-3 flex items-center gap-2"><Plus className="size-4" />Novo acesso</div>
-        <form onSubmit={submit} className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="md:col-span-2"><Label className="text-xs">Nome completo</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></div>
-          <div className="md:col-span-2"><Label className="text-xs">E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-          <div><Label className="text-xs">Perfil</Label>
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as never })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-              <option value="viewer">Consulta (somente leitura)</option>
-              <option value="admin">Administrador</option>
-              <option value="master">Master (admin + aprovação SMV/SMI)</option>
-              <option value="mechanic">Mecânico (SMI/SMV)</option>
-              <option value="driver">Motorista</option>
-            </select>
-          </div>
-          <div className="flex items-end gap-2">
-            <div className="flex items-center gap-2">
-              <input id="driver-active" type="checkbox" checked={form.driver_active} onChange={(e) => setForm({ ...form, driver_active: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
-              <label htmlFor="driver-active" className="text-xs">Motorista ativo</label>
+      <Dialog open={showNew} onOpenChange={(open) => { if (!open) closeNew(); }}>
+        <DialogContent className="w-[95vw] max-w-md sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="size-4 text-primary" /> Novo usuário
+            </DialogTitle>
+            <DialogDescription>
+              A senha inicial será o CPF do utilizador (apenas os números).
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submit} className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label>Nome completo</Label>
+              <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="João da Silva" required />
             </div>
-          </div>
-          <div className="md:col-span-4"><Label className="text-xs">Senha provisória (mín. 8)</Label><Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} /></div>
-          <div className="flex items-end"><Button type="submit" className="w-full" disabled={busy}>{busy ? "..." : "Criar"}</Button></div>
-        </form>
-      </Card>
+            <div className="space-y-1.5">
+              <Label>E-mail</Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="joao@empresa.com" required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>CPF</Label>
+              <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} placeholder="000.000.000-00" required minLength={11} />
+              <p className="text-[11px] text-muted-foreground">Será usado como senha inicial de acesso.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Perfil</Label>
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as never })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+                <option value="viewer">Consulta (somente leitura)</option>
+                <option value="driver">Motorista</option>
+                <option value="mechanic">Mecânico (SMI/SMV)</option>
+                <option value="admin">Administrador</option>
+                <option value="master">Master (admin + aprovação SMV/SMI)</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input id="driver-active-dlg" type="checkbox" checked={form.driver_active} onChange={(e) => setForm({ ...form, driver_active: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+              <label htmlFor="driver-active-dlg" className="text-sm">Motorista ativo</label>
+            </div>
+            <DialogFooter className="pt-2 gap-2">
+              <Button type="button" variant="ghost" onClick={closeNew} disabled={busy}>Cancelar</Button>
+              <Button type="submit" disabled={busy}>{busy ? "Cadastrando…" : "Cadastrar"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Card className="p-5">
         <div className="font-semibold mb-3">{staff.length} usuário(s) cadastrados</div>

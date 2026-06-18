@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Users, X as XIcon, Upload, FileText, Camera, History, Plus } from "lucide-react";
+import { Users, X as XIcon, Upload, FileText, Camera, History, Plus, SlidersHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/admin/drivers")({ component: DriversPage });
 
@@ -43,7 +43,10 @@ function DriversPage() {
   const [funcFilter, setFuncFilter] = useState("");
   const [baseFilter, setBaseFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all"|"ok"|"warn"|"danger"|"missing">("all");
+  const [showFilter, setShowFilter] = useState(false);
   const [editing, setEditing] = useState<Driver | null>(null);
+
+  const activeFilterCount = [search, funcFilter, baseFilter, statusFilter !== "all" ? statusFilter : ""].filter(Boolean).length;
 
   const load = async () => {
     setLoading(true);
@@ -66,26 +69,44 @@ function DriversPage() {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="size-6" />Motoristas ativos</h1>
-        <p className="text-sm text-muted-foreground">Apenas motoristas com status ativo no cadastro de usuário são exibidos aqui.</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="size-6" />Motoristas ativos</h1>
+          <p className="text-sm text-muted-foreground">Apenas motoristas com status ativo no cadastro de usuário são exibidos aqui.</p>
+        </div>
+        <Button
+          variant={showFilter ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowFilter((v) => !v)}
+          className="relative gap-1.5"
+        >
+          <SlidersHorizontal className="size-4" />
+          Filtros
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
       </div>
 
-      <Card className="p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="md:col-span-2"><Label className="text-xs">Buscar (nome, CPF, CNH, telefone)</Label><Input value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-        <div><Label className="text-xs">Função</Label>
-          <select value={funcFilter} onChange={(e) => setFuncFilter(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            <option value="">Todas</option>{FUNCTIONS.map((f) => <option key={f.v} value={f.v}>{f.l}</option>)}
-          </select>
-        </div>
-        <div><Label className="text-xs">Base</Label><Input value={baseFilter} onChange={(e) => setBaseFilter(e.target.value)} /></div>
-        <div className="md:col-span-2"><Label className="text-xs">Status da CNH</Label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            <option value="all">Todos</option><option value="ok">Válida</option>
-            <option value="warn">A vencer (30d)</option><option value="danger">Vencida</option><option value="missing">Sem cadastro</option>
-          </select>
-        </div>
-      </Card>
+      {showFilter && (
+        <Card className="p-4 grid grid-cols-2 md:grid-cols-4 gap-2 border-dashed border-primary/30 bg-primary/[0.02]">
+          <div className="md:col-span-2"><Label className="text-xs">Buscar (nome, CPF, CNH, telefone)</Label><Input value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+          <div><Label className="text-xs">Função</Label>
+            <select value={funcFilter} onChange={(e) => setFuncFilter(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="">Todas</option>{FUNCTIONS.map((f) => <option key={f.v} value={f.v}>{f.l}</option>)}
+            </select>
+          </div>
+          <div><Label className="text-xs">Base</Label><Input value={baseFilter} onChange={(e) => setBaseFilter(e.target.value)} /></div>
+          <div className="md:col-span-2"><Label className="text-xs">Status da CNH</Label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="all">Todos</option><option value="ok">Válida</option>
+              <option value="warn">A vencer (30d)</option><option value="danger">Vencida</option><option value="missing">Sem cadastro</option>
+            </select>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-4">
         <div className="text-sm font-semibold mb-2">{filtered.length} pessoa(s)</div>

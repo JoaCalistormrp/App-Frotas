@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Truck, Plus, FileText, X as XIcon, Upload, Trash2, Pencil } from "lucide-react";
+import { Truck, Plus, FileText, X as XIcon, Upload, Trash2, Pencil, SlidersHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/admin/vehicles")({ component: VehiclesPage });
 
@@ -29,7 +29,10 @@ function VehiclesPage() {
   const [catFilter, setCatFilter] = useState("");
   const [baseFilter, setBaseFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all"|"active"|"inactive">("all");
+  const [showFilter, setShowFilter] = useState(false);
   const [editing, setEditing] = useState<Vehicle | "new" | null>(null);
+
+  const activeFilterCount = [search, catFilter, baseFilter, statusFilter !== "all" ? statusFilter : ""].filter(Boolean).length;
 
   const load = async () => {
     setLoading(true);
@@ -61,24 +64,42 @@ function VehiclesPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="size-6" />Veículos</h1>
           <p className="text-sm text-muted-foreground">Cadastro, categorias e documentos da frota</p>
         </div>
-        <Button onClick={() => setEditing("new")}><Plus className="size-4" />Novo veículo</Button>
+        <div className="flex gap-2">
+          <Button
+            variant={showFilter ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowFilter((v) => !v)}
+            className="relative gap-1.5"
+          >
+            <SlidersHorizontal className="size-4" />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+          <Button onClick={() => setEditing("new")}><Plus className="size-4" />Novo veículo</Button>
+        </div>
       </div>
 
-      <Card className="p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div><Label className="text-xs">Placa / modelo / marca</Label><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." /></div>
-        <div><Label className="text-xs">Categoria</Label>
-          <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            <option value="">Todas</option>
-            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </div>
-        <div><Label className="text-xs">Base</Label><Input value={baseFilter} onChange={(e) => setBaseFilter(e.target.value)} /></div>
-        <div><Label className="text-xs">Situação</Label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            <option value="all">Todos</option><option value="active">Ativos</option><option value="inactive">Inativos</option>
-          </select>
-        </div>
-      </Card>
+      {showFilter && (
+        <Card className="p-4 grid grid-cols-2 md:grid-cols-4 gap-2 border-dashed border-primary/30 bg-primary/[0.02]">
+          <div><Label className="text-xs">Placa / modelo / marca</Label><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." /></div>
+          <div><Label className="text-xs">Categoria</Label>
+            <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="">Todas</option>
+              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+          <div><Label className="text-xs">Base</Label><Input value={baseFilter} onChange={(e) => setBaseFilter(e.target.value)} /></div>
+          <div><Label className="text-xs">Situação</Label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+              <option value="all">Todos</option><option value="active">Ativos</option><option value="inactive">Inativos</option>
+            </select>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-4">
         <div className="text-sm font-semibold mb-2">{filtered.length} veículo(s)</div>

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, Home, ShieldCheck, UserCog, Trash2 } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Truck, Users, Wrench, LogOut, ShieldCheck, UserCog, Trash2 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -8,13 +8,13 @@ import { useAuth } from "@/lib/auth";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 
 const items = [
-  { title: "Dashboard", url: "/admin", icon: LayoutDashboard, exact: true, adminOnly: true },
-  { title: "Histórico Geral", url: "/admin/checklists", icon: ClipboardList },
+  { title: "Painel Administrativo", url: "/admin", icon: LayoutDashboard, exact: true, adminOnly: true },
+  { title: "Checklists", url: "/admin/checklists", icon: ClipboardList },
+  { title: "Painel do Mecânico", url: "/admin/maintenance", icon: Wrench, adminOnly: true },
   { title: "Veículos", url: "/admin/vehicles", icon: Truck, adminOnly: true },
   { title: "Motoristas", url: "/admin/drivers", icon: Users, adminOnly: true },
-  { title: "SMV / SMI", url: "/admin/maintenance", icon: Wrench, adminOnly: true },
-  { title: "Lixeira", url: "/admin/maintenance/trash", icon: Trash2, adminOnly: true },
   { title: "Equipe / Acessos", url: "/admin/team", icon: UserCog, adminOnly: true },
+  { title: "Lixeira", url: "/admin/maintenance/trash", icon: Trash2, adminOnly: true },
 ];
 
 export function AdminSidebar() {
@@ -22,7 +22,9 @@ export function AdminSidebar() {
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { signOut, user, isAdmin } = useAuth();
+  
   const isActive = (url: string, exact?: boolean) => exact ? path === url : path === url || path.startsWith(url + "/");
+  
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
@@ -36,6 +38,7 @@ export function AdminSidebar() {
           )}
         </div>
       </SidebarHeader>
+      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Gestão</SidebarGroupLabel>
@@ -55,16 +58,9 @@ export function AdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link to="/" className="flex items-center gap-2">
-                <Home className="size-4" />
-                {!collapsed && <span>App do motorista</span>}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut}>
               <LogOut className="size-4" />

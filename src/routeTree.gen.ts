@@ -10,21 +10,35 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MechanicRouteImport } from './routes/mechanic'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as FinanceiroRouteImport } from './routes/financeiro'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminVehiclesRouteImport } from './routes/admin.vehicles'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminTeamRouteImport } from './routes/admin.team'
 import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance'
 import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
+import { Route as AdminChecklistRouteImport } from './routes/admin.checklist'
 import { Route as AdminMaintenanceTrashRouteImport } from './routes/admin.maintenance.trash'
 import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
 
 const MechanicRoute = MechanicRouteImport.update({
   id: '/mechanic',
   path: '/mechanic',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceiroRoute = FinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DownloadRoute = DownloadRouteImport.update({
@@ -52,6 +66,11 @@ const AdminVehiclesRoute = AdminVehiclesRouteImport.update({
   path: '/vehicles',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminTeamRoute = AdminTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -72,6 +91,11 @@ const AdminChecklistsRoute = AdminChecklistsRouteImport.update({
   path: '/checklists',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminChecklistRoute = AdminChecklistRouteImport.update({
+  id: '/checklist',
+  path: '/checklist',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMaintenanceTrashRoute = AdminMaintenanceTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
@@ -87,11 +111,15 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/download': typeof DownloadRoute
+  '/financeiro': typeof FinanceiroRoute
+  '/home': typeof HomeRoute
   '/mechanic': typeof MechanicRoute
+  '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
   '/admin/team': typeof AdminTeamRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
@@ -100,11 +128,15 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/download': typeof DownloadRoute
+  '/financeiro': typeof FinanceiroRoute
+  '/home': typeof HomeRoute
   '/mechanic': typeof MechanicRoute
+  '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
   '/admin/team': typeof AdminTeamRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin': typeof AdminIndexRoute
   '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
@@ -115,11 +147,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/download': typeof DownloadRoute
+  '/financeiro': typeof FinanceiroRoute
+  '/home': typeof HomeRoute
   '/mechanic': typeof MechanicRoute
+  '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
   '/admin/maintenance': typeof AdminMaintenanceRouteWithChildren
   '/admin/team': typeof AdminTeamRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/vehicles': typeof AdminVehiclesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/maintenance/$id': typeof AdminMaintenanceIdRoute
@@ -131,11 +167,15 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/download'
+    | '/financeiro'
+    | '/home'
     | '/mechanic'
+    | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
     | '/admin/maintenance'
     | '/admin/team'
+    | '/admin/usuarios'
     | '/admin/vehicles'
     | '/admin/'
     | '/admin/maintenance/$id'
@@ -144,11 +184,15 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/download'
+    | '/financeiro'
+    | '/home'
     | '/mechanic'
+    | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
     | '/admin/maintenance'
     | '/admin/team'
+    | '/admin/usuarios'
     | '/admin/vehicles'
     | '/admin'
     | '/admin/maintenance/$id'
@@ -158,11 +202,15 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/download'
+    | '/financeiro'
+    | '/home'
     | '/mechanic'
+    | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
     | '/admin/maintenance'
     | '/admin/team'
+    | '/admin/usuarios'
     | '/admin/vehicles'
     | '/admin/'
     | '/admin/maintenance/$id'
@@ -173,6 +221,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   DownloadRoute: typeof DownloadRoute
+  FinanceiroRoute: typeof FinanceiroRoute
+  HomeRoute: typeof HomeRoute
   MechanicRoute: typeof MechanicRoute
 }
 
@@ -183,6 +233,20 @@ declare module '@tanstack/react-router' {
       path: '/mechanic'
       fullPath: '/mechanic'
       preLoaderRoute: typeof MechanicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/financeiro': {
+      id: '/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof FinanceiroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/download': {
@@ -220,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVehiclesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/team': {
       id: '/admin/team'
       path: '/team'
@@ -246,6 +317,13 @@ declare module '@tanstack/react-router' {
       path: '/checklists'
       fullPath: '/admin/checklists'
       preLoaderRoute: typeof AdminChecklistsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/checklist': {
+      id: '/admin/checklist'
+      path: '/checklist'
+      fullPath: '/admin/checklist'
+      preLoaderRoute: typeof AdminChecklistRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/maintenance/trash': {
@@ -279,19 +357,23 @@ const AdminMaintenanceRouteWithChildren =
   AdminMaintenanceRoute._addFileChildren(AdminMaintenanceRouteChildren)
 
 interface AdminRouteChildren {
+  AdminChecklistRoute: typeof AdminChecklistRoute
   AdminChecklistsRoute: typeof AdminChecklistsRoute
   AdminDriversRoute: typeof AdminDriversRoute
   AdminMaintenanceRoute: typeof AdminMaintenanceRouteWithChildren
   AdminTeamRoute: typeof AdminTeamRoute
+  AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminVehiclesRoute: typeof AdminVehiclesRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminChecklistRoute: AdminChecklistRoute,
   AdminChecklistsRoute: AdminChecklistsRoute,
   AdminDriversRoute: AdminDriversRoute,
   AdminMaintenanceRoute: AdminMaintenanceRouteWithChildren,
   AdminTeamRoute: AdminTeamRoute,
+  AdminUsuariosRoute: AdminUsuariosRoute,
   AdminVehiclesRoute: AdminVehiclesRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -302,6 +384,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   DownloadRoute: DownloadRoute,
+  FinanceiroRoute: FinanceiroRoute,
+  HomeRoute: HomeRoute,
   MechanicRoute: MechanicRoute,
 }
 export const routeTree = rootRouteImport

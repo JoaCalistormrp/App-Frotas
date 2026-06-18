@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench } from "lucide-react";
+import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench, Lock, ArrowRight, Smartphone } from "lucide-react";
 import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon, Users, Bell, Upload, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -72,12 +72,21 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { user, loading, signOut, isMechanic, isAdmin, isViewer } = useAuth();
+  
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <AuthScreen />;
-  if (isMechanic && !isAdmin && !isViewer) return <Navigate to="/mechanic" />;
+
+  // Mechanic always goes to mechanic screen — never to ERP regardless of other roles
+  if (isMechanic) return <Navigate to="/mechanic" />;
+
+  // Admin/Master/Viewer → ERP home
+  if (isAdmin || isViewer) return <Navigate to="/home" />;
+
+  // Driver or unknown role → driver checklist app
   return <AppShell onSignOut={signOut} />;
 }
 
+// --- TELA DE LOGIN ESTILO MOBILE APP ---
 function AuthScreen() {
   const { signInUnified } = useAuth();
   const [credential, setCredential] = useState("");
@@ -92,56 +101,82 @@ function AuthScreen() {
     const r = await signInUnified(credential, password);
     setBusy(false);
     if (r.error) toast.error(r.error);
+    else toast.success("Acesso autorizado!");
   };
 
   return (
-    <div className="min-h-screen grid place-items-center p-4 bg-background">
-      <Card className="w-full max-w-md p-6 space-y-5">
-        <div className="flex flex-col items-center gap-3 pt-2">
-          <img src={logoTomaz} alt="Grupo Tomaz" className="h-20 w-auto object-contain" />
-          <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">Checklist Frota</h1>
-            <p className="text-xs text-muted-foreground">Inspeção veicular digital</p>
+    // Fundo em gradiente escuro moderno (baseado nas referências)
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-[#1E293B] to-slate-900">
+      
+      {/* Card flutuante estilo tela de celular */}
+      <Card className="w-full max-w-[380px] bg-background/95 backdrop-blur-md rounded-[2.5rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-0 relative overflow-hidden">
+        
+        {/* Cabeçalho com Logo em "Avatar" */}
+        <div className="flex flex-col items-center mb-8 pt-4">
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg mb-6 p-3">
+            <img src={logoTomaz} alt="Grupo Tomaz" className="w-full h-full object-contain" />
           </div>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">Bem-vindo</h1>
+          <p className="text-sm text-muted-foreground mt-1">Faça login para continuar</p>
         </div>
-        <form onSubmit={submit} className="space-y-3">
-          <div>
-            <Label>CPF ou E-mail</Label>
+        
+        <form onSubmit={submit} className="space-y-4">
+          {/* Input CPF/Email com formato arredondado "pílula" */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-muted-foreground">
+              <UserIcon className="size-5 opacity-70" />
+            </div>
             <Input 
               value={credential} 
               onChange={(e) => setCredential(e.target.value)} 
               required 
-              placeholder="000.000.000-00 ou seu@email.com" 
+              placeholder="CPF (só números) ou E-mail"
+              className="pl-12 h-14 rounded-full bg-muted/50 border-transparent focus-visible:ring-primary focus-visible:border-primary text-base transition-all placeholder:text-muted-foreground/60"
             />
           </div>
-          <div>
-            <Label>Senha</Label>
+          
+          {/* Input Senha */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-muted-foreground">
+              <Lock className="size-5 opacity-70" />
+            </div>
             <Input 
-              type="password" 
+              type="password"
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               required 
-              minLength={6} 
+              placeholder="Sua senha" 
+              className="pl-12 h-14 rounded-full bg-muted/50 border-transparent focus-visible:ring-primary focus-visible:border-primary text-base transition-all placeholder:text-muted-foreground/60"
             />
           </div>
-          <Button type="submit" className="w-full h-11 text-base" disabled={busy}>
-            {busy ? "Entrando…" : "Entrar"}
-          </Button>
+
+          {/* Botão de Login Largo e Arredondado */}
+          <div className="pt-2">
+            <Button type="submit" className="w-full h-14 rounded-full text-base font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:scale-[1.02] transition-all" disabled={busy}>
+              {busy ? "Entrando..." : "Entrar"}
+            </Button>
+          </div>
         </form>
-        <div className="pt-2 border-t text-center">
-          <Link to="/download" className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1">
-            📱 Baixar aplicativo para o seu dispositivo
+
+        {/* Rodapé - App Download */}
+        <div className="mt-8 mb-2 text-center">
+          <Link to="/download" className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-2">
+            <Smartphone className="size-4" /> Baixar o Aplicativo
           </Link>
         </div>
       </Card>
-      <div className="fixed bottom-2 left-0 right-0 text-center text-[11px] text-muted-foreground">
-        Desenvolvido por Julia Ramos
+      
+      {/* Texto de direitos autorais fora do card na base da tela */}
+      <div className="fixed bottom-4 text-[11px] text-white/40 uppercase tracking-widest text-center w-full pointer-events-none">
+        Grupo Tomaz © {new Date().getFullYear()}
       </div>
     </div>
   );
 }
 
-type Vehicle = { id: string; plate: string; model: string | null; vehicle_type: string; sector: string | null; base: string | null };
+// ================= APP SHELL (MOTORISTAS E RESTANTE) =================
+
+export type Vehicle = { id: string; plate: string; model: string | null; vehicle_type: string; sector: string | null; base: string | null };
 
 function AppShell({ onSignOut }: { onSignOut: () => void }) {
   const { isAdmin, user } = useAuth();
@@ -216,7 +251,7 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
   MUNCK: "Munck",
 };
 
-function VehicleListByCategory({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect: (id: string) => void }) {
+export function VehicleListByCategory({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect: (id: string) => void }) {
   const grouped = vehicles.reduce<Record<string, Vehicle[]>>((acc, v) => {
     (acc[v.vehicle_type] ||= []).push(v);
     return acc;
@@ -598,7 +633,7 @@ type Item = { id: string; name: string; category_id: string };
 type Category = { id: string; name: string; sort_order: number };
 type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string; photo: File | null; photoPreview: string | null };
 
-function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: () => void }) {
+export function ChecklistRunner({ vehicleId, onClose, embedded = false }: { vehicleId: string; onClose: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
@@ -685,10 +720,12 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
 
   if (!vehicle) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
 
+  const isEmbedded = embedded;
+
   return (
     <div
-      className="min-h-screen bg-background pb-32"
-      style={{
+      className={isEmbedded ? "flex flex-col bg-background" : "min-h-screen bg-background pb-32"}
+      style={isEmbedded ? {} : {
         backgroundImage: `linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), url(${logoTomaz})`,
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center 40%",
@@ -696,8 +733,8 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
         backgroundAttachment: "fixed",
       }}
     >
-      <header className="sticky top-0 z-10 bg-card border-b border-border">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className={isEmbedded ? "flex items-center justify-between py-2 border-b border-border mb-4" : "sticky top-0 z-10 bg-card border-b border-border"}>
+        <div className={isEmbedded ? "flex items-center justify-between w-full" : "max-w-3xl mx-auto px-4 py-3 flex items-center justify-between"}>
           <button onClick={onClose} className="text-sm text-muted-foreground">← Voltar</button>
           <div className="text-right">
             <div className="font-bold">{vehicle.plate}</div>
@@ -706,7 +743,7 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+      <main className={isEmbedded ? "flex-1 space-y-4 pb-4" : "max-w-3xl mx-auto px-4 py-4 space-y-4"}>
         <Card className="p-4 space-y-3">
           <div><Label>Itinerário / Destino</Label><Input value={itinerary} onChange={(e) => setItinerary(e.target.value)} /></div>
           <div><Label>Odômetro</Label><Input type="number" value={odometer} onChange={(e) => setOdometer(e.target.value)} /></div>
@@ -765,7 +802,10 @@ function ChecklistRunner({ vehicleId, onClose }: { vehicleId: string; onClose: (
         ))}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-3">
+      <div className={isEmbedded
+        ? "sticky bottom-0 bg-card border-t border-border p-3 mt-4"
+        : "fixed bottom-0 left-0 right-0 bg-card border-t border-border p-3"
+      }>
         <div className="max-w-3xl mx-auto">
           <Button className="w-full h-12 text-base font-bold" onClick={submit} disabled={busy}>
             {busy ? "Enviando..." : "Finalizar checklist"}

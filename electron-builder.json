@@ -1,0 +1,60 @@
+{
+  "appId": "com.grupotomaz.frota",
+  "productName": "Checklist Frota",
+  "copyright": "© 2025 Grupo Tomaz",
+  "directories": {
+    "output": "dist-electron",
+    "buildResources": "public"
+  },
+  "asar": true,
+  "asarUnpack": [
+    "electron/node-server.mjs",
+    "dist/server/**/*",
+    "dist/client/**/*"
+  ],
+  "files": [
+    "electron/main.cjs",
+    "electron/node-server.mjs",
+    "dist/**/*",
+    "public/icons/**/*",
+    "package.json",
+    "node_modules/**/*",
+    "!node_modules/electron/**/*",
+    "!node_modules/electron-builder/**/*",
+    "!node_modules/miniflare/**/*",
+    "!node_modules/workerd/**/*",
+    "!node_modules/@cloudflare/workerd-windows-64/**/*",
+    "!node_modules/@cloudflare/vite-plugin/**/*",
+    "!node_modules/vite/**/*",
+    "!node_modules/esbuild/**/*",
+    "!node_modules/@esbuild/**/*",
+    "!node_modules/.cache/**/*",
+    "!node_modules/**/*.map",
+    "!node_modules/**/test/**/*",
+    "!node_modules/**/__tests__/**/*"
+  ],
+  "icon": "public/icons/icon.ico",
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] }
+    ],
+    "icon": "public/icons/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Checklist Frota"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "public/icons/icon-512.png",
+    "category": "public.app-category.business"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "public/icons/icon-512.png",
+    "category": "Utility"
+  }
+}
