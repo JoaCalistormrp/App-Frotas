@@ -186,7 +186,7 @@ function ModulesSection({
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 function UsuariosPage() {
-  const { isAdmin, isViewer, modules, user, reloadModules } = useAuth();
+  const { isAdmin, isViewer, modules, user, loading: authLoading, reloadModules } = useAuth();
   const listFn    = useServerFn(listStaff);
   const createFn  = useServerFn(createStaffUser);
   const updateFn  = useServerFn(updateStaffUser);
@@ -230,7 +230,8 @@ function UsuariosPage() {
   };
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
 
-  if (!isAdmin && !isViewer) return <Navigate to="/" />;
+  if (authLoading) return <div className="py-12 text-center text-muted-foreground text-sm">Carregando…</div>;
+  if (!user || (!isAdmin && !isViewer)) return <Navigate to="/" />;
   if (!modules.includes("utilizadores")) return <Navigate to="/home" />;
 
   // ── Filtered list ─────────────────────────────────────────────────────────
@@ -429,7 +430,7 @@ function UsuariosPage() {
                   value={newForm.role}
                   onChange={(e) => {
                     const role = e.target.value;
-                    setNewForm({ ...newForm, role, modules: ["driver", "mechanic"].includes(role) ? [] : newForm.modules });
+                    setNewForm({ ...newForm, role });
                   }}
                   className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"
                 >
@@ -444,17 +445,15 @@ function UsuariosPage() {
               </div>
             </div>
 
-            {!["driver", "mechanic"].includes(newForm.role) && (
-              <>
-                <Separator />
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
-                    <Truck className="size-3.5" /> Módulos de acesso
-                  </Label>
-                  <ModulesSection selected={newForm.modules} onChange={(m) => setNewForm({ ...newForm, modules: m })} />
-                </div>
-              </>
-            )}
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <Truck className="size-3.5" /> Módulos de acesso
+                </Label>
+                <ModulesSection selected={newForm.modules} onChange={(m) => setNewForm({ ...newForm, modules: m })} />
+              </div>
+            </>
 
             <DialogFooter className="gap-2 pt-1">
               <Button type="button" variant="ghost" onClick={closeNew} disabled={creating}>Cancelar</Button>
@@ -506,7 +505,7 @@ function UsuariosPage() {
                         value={editForm.role}
                         onChange={(e) => {
                           const role = e.target.value;
-                          setEditForm({ ...editForm, role, modules: ["driver", "mechanic"].includes(role) ? [] : editForm.modules });
+                          setEditForm({ ...editForm, role });
                         }}
                         className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"
                       >
@@ -520,17 +519,15 @@ function UsuariosPage() {
                   </div>
                 </section>
 
-                {!["driver", "mechanic"].includes(editForm.role) && (
-                  <>
-                    <Separator />
-                    <section className="space-y-3">
-                      <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                        <Truck className="size-3.5" /> Módulos de acesso
-                      </h3>
-                      <ModulesSection selected={editForm.modules} onChange={(m) => setEditForm({ ...editForm, modules: m })} />
-                    </section>
-                  </>
-                )}
+                <>
+                  <Separator />
+                  <section className="space-y-3">
+                    <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
+                      <Truck className="size-3.5" /> Módulos de acesso
+                    </h3>
+                    <ModulesSection selected={editForm.modules} onChange={(m) => setEditForm({ ...editForm, modules: m })} />
+                  </section>
+                </>
 
                 <Separator />
 

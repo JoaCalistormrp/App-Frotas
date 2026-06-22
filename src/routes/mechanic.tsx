@@ -244,7 +244,7 @@ function StatusBadge({ status }: { status: Order["status"] }) {
   return <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${statusTone(status)}`}>{statusLabel(status)}</span>;
 }
 
-// ---------------- Checklists panel ----------------
+// ---------------- Checklists painel ----------------
 
 type ChecklistRow = {
   id: string; vehicle_id: string; driver_id: string; has_issues: boolean; status: string;

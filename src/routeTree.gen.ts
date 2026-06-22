@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MotoristaRouteImport } from './routes/motorista'
 import { Route as MechanicRouteImport } from './routes/mechanic'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as FinanceiroRouteImport } from './routes/financeiro'
@@ -26,6 +27,11 @@ import { Route as AdminChecklistRouteImport } from './routes/admin.checklist'
 import { Route as AdminMaintenanceTrashRouteImport } from './routes/admin.maintenance.trash'
 import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
 
+const MotoristaRoute = MotoristaRouteImport.update({
+  id: '/motorista',
+  path: '/motorista',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MechanicRoute = MechanicRouteImport.update({
   id: '/mechanic',
   path: '/mechanic',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof FinanceiroRoute
   '/home': typeof HomeRoute
   '/mechanic': typeof MechanicRoute
+  '/motorista': typeof MotoristaRoute
   '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof FinanceiroRoute
   '/home': typeof HomeRoute
   '/mechanic': typeof MechanicRoute
+  '/motorista': typeof MotoristaRoute
   '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/financeiro': typeof FinanceiroRoute
   '/home': typeof HomeRoute
   '/mechanic': typeof MechanicRoute
+  '/motorista': typeof MotoristaRoute
   '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/home'
     | '/mechanic'
+    | '/motorista'
     | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/home'
     | '/mechanic'
+    | '/motorista'
     | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/home'
     | '/mechanic'
+    | '/motorista'
     | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
@@ -224,10 +236,18 @@ export interface RootRouteChildren {
   FinanceiroRoute: typeof FinanceiroRoute
   HomeRoute: typeof HomeRoute
   MechanicRoute: typeof MechanicRoute
+  MotoristaRoute: typeof MotoristaRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/motorista': {
+      id: '/motorista'
+      path: '/motorista'
+      fullPath: '/motorista'
+      preLoaderRoute: typeof MotoristaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mechanic': {
       id: '/mechanic'
       path: '/mechanic'
@@ -387,6 +407,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinanceiroRoute: FinanceiroRoute,
   HomeRoute: HomeRoute,
   MechanicRoute: MechanicRoute,
+  MotoristaRoute: MotoristaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

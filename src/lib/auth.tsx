@@ -10,6 +10,7 @@ type AuthCtx = {
   isMaster: boolean;
   isViewer: boolean;
   isMechanic: boolean;
+  isDriver: boolean;
   roles: string[];
   modules: string[];
   loading: boolean;
@@ -41,28 +42,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const admin = rs.includes("admin") || rs.includes("master");
       setIsAdmin(admin);
       setIsMaster(rs.includes("master"));
-      // Only ERP roles (admin/master/viewer) have module assignments.
-      // Cast to any because user_module_access is not yet in generated Supabase types.
-      if (admin || rs.includes("viewer")) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: mods, error: modErr } = await (supabase as any).from("user_module_access").select("module_slug").eq("user_id", uid);
-        if (modErr) console.error("[auth] user_module_access query failed:", modErr.message);
-        setModules(((mods as Array<{ module_slug: string }>) ?? []).map((m) => m.module_slug));
-      } else {
-        setModules([]);
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: mods, error: modErr } = await (supabase as any).from("user_module_access").select("module_slug").eq("user_id", uid);
+      if (modErr) console.error("[auth] user_module_access query failed:", modErr.message);
+      setModules(((mods as Array<{ module_slug: string }>) ?? []).map((m) => m.module_slug));
     };
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      setTimeout(() => { loadRoles(s?.user?.id ?? null); }, 0);
-    });
+
+    // getSession é a fonte autoritária do estado inicial — evita dupla chamada a loadRoles
+    let initialSessionHandled = false;
     supabase.auth.getSession().then(async ({ data }) => {
+      initialSessionHandled = true;
       setSession(data.session);
       setUser(data.session?.user ?? null);
       await loadRoles(data.session?.user?.id ?? null);
       setLoading(false);
     });
+
+    // onAuthStateChange trata apenas mudanças subsequentes (login/logout)
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (!initialSessionHandled) return;
+      setSession(s);
+      setUser(s?.user ?? null);
+      loadRoles(s?.user?.id ?? null);
+    });
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -122,7 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isViewer = roles.includes("viewer");
   const isMechanic = roles.includes("mechanic");
-  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
+  const isDriver = !!user && !isAdmin && !isMaster && !isViewer && !isMechanic;
+  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => {

@@ -46,7 +46,7 @@ const ALL_MODULES = [
 ];
 
 function ERPHome() {
-  const { user, isAdmin, isViewer, modules, loading } = useAuth();
+  const { user, isAdmin, isViewer, isMechanic, isDriver, modules, loading } = useAuth();
 
   if (loading) {
     return (
@@ -56,6 +56,7 @@ function ERPHome() {
     );
   }
   if (!user) return <Navigate to="/" />;
+  if (isMechanic || isDriver) return <Navigate to="/motorista" />;
   if (!isAdmin && !isViewer) return <Navigate to="/" />;
 
   const visibleModules = ALL_MODULES.filter((m) =>

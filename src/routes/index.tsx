@@ -71,19 +71,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user, loading, signOut, isMechanic, isAdmin, isViewer } = useAuth();
-  
+  const { user, loading, isMechanic, isAdmin, isViewer, isDriver } = useAuth();
+
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <AuthScreen />;
 
-  // Mechanic always goes to mechanic screen — never to ERP regardless of other roles
-  if (isMechanic) return <Navigate to="/mechanic" />;
-
-  // Admin/Master/Viewer → ERP home
   if (isAdmin || isViewer) return <Navigate to="/home" />;
+  if (isMechanic || isDriver) return <Navigate to="/motorista" />;
 
-  // Driver or unknown role → driver checklist app
-  return <AppShell onSignOut={signOut} />;
+  return <Navigate to="/home" />;
 }
 
 // --- TELA DE LOGIN ESTILO MOBILE APP ---

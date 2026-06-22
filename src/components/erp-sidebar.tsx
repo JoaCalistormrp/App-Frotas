@@ -32,7 +32,7 @@ export function ERPSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { signOut, user, isAdmin, modules } = useAuth();
+  const { signOut, user, isAdmin, isDriver, isMechanic, modules } = useAuth();
 
   const isActive = (url: string, exact: boolean) =>
     exact ? path === url : path === url || path.startsWith(url + "/");
@@ -87,6 +87,28 @@ export function ERPSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* ── Motorista / Mecânico: Checklist Diário ──────────── */}
+        {(isDriver || isMechanic) && modules.some((s) => s === "frotas" || s.startsWith("frotas.")) && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>{isMechanic ? "Mecânico" : "Motorista"}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={path === "/motorista"}>
+                      <Link to="/motorista" className="flex items-center gap-2">
+                        <ClipboardList className="size-4" />
+                        {!collapsed && <span>Checklist Diário</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         {/* ── Sub-nav Frotas (só aparece dentro de /admin) ──── */}
         {onFrotas && (
