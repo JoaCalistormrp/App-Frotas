@@ -12,9 +12,18 @@ export const Route = createFileRoute("/admin/vehicles")({ component: VehiclesPag
 
 type Vehicle = {
   id: string; plate: string; model: string | null; brand: string | null; year: number | null;
-  renavam: string | null; vehicle_type: string; category: string | null; base: string | null;
+  renavam: string | null; vehicle_type: string; checklist_types: string[] | null; category: string | null; base: string | null;
   sector: string | null; active: boolean; mileage: number | null; fuel_type: string | null; document_url: string | null;
 };
+
+const CHECKLIST_TYPES = [
+  { value: "PESADOS",        label: "Pesados" },
+  { value: "OPERACIONAIS",   label: "Operacional" },
+  { value: "CESTO_AEREO",    label: "Cesto Aéreo" },
+  { value: "ADMINISTRATIVO", label: "Administrativo" },
+  { value: "MUNCK",          label: "Munck" },
+  { value: "MAQUINARIO",     label: "Maquinário" },
+];
 
 const CATEGORIES = [
   { value: "pesado", label: "Pesados" },
@@ -140,6 +149,7 @@ function VehicleModal({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; 
   const [renavam, setRenavam] = useState(vehicle?.renavam ?? "");
   const [category, setCategory] = useState<string>(vehicle?.category ?? "");
   const [type, setType] = useState<string>(vehicle?.vehicle_type ?? "PESADOS");
+  const [checklistTypes, setChecklistTypes] = useState<string[]>(vehicle?.checklist_types ?? []);
   const [base, setBase] = useState(vehicle?.base ?? "");
   const [mileage, setMileage] = useState(vehicle?.mileage?.toString() ?? "");
   const [fuel, setFuel] = useState(vehicle?.fuel_type ?? "");
@@ -177,6 +187,7 @@ function VehicleModal({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; 
         renavam: renavam || null,
         category: (category || null) as never,
         vehicle_type: type as never,
+        checklist_types: checklistTypes as never,
         base: base || null,
         mileage: mileage ? Number(mileage) : null,
         fuel_type: fuel || null,
@@ -222,12 +233,37 @@ function VehicleModal({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; 
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
-          <div><Label className="text-xs">Tipo (checklist)</Label>
-            <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-              <option value="PESADOS">Pesados</option><option value="OPERACIONAIS">Operacionais</option>
-              <option value="CESTO_AEREO">Cesto Aéreo</option><option value="ADMINISTRATIVO">Administrativo</option>
-              <option value="MUNCK">Munck</option>
+          <div><Label className="text-xs">Tipo principal (checklist)</Label>
+            <select
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value);
+                setChecklistTypes((prev) => prev.filter((t) => t !== e.target.value));
+              }}
+              className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"
+            >
+              {CHECKLIST_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
+          </div>
+          <div className="col-span-2 md:col-span-3">
+            <Label className="text-xs text-muted-foreground">Aparece também nos checklists</Label>
+            <div className="flex flex-wrap gap-x-5 gap-y-2 mt-1.5">
+              {CHECKLIST_TYPES.filter((t) => t.value !== type).map((t) => (
+                <label key={t.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={checklistTypes.includes(t.value)}
+                    onChange={() =>
+                      setChecklistTypes((prev) =>
+                        prev.includes(t.value) ? prev.filter((x) => x !== t.value) : [...prev, t.value]
+                      )
+                    }
+                    className="h-3.5 w-3.5 rounded"
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
           </div>
           <div><Label className="text-xs">Combustível</Label>
             <select value={fuel} onChange={(e) => setFuel(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">

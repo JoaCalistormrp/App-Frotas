@@ -25,6 +25,8 @@ import {
 export const Route = createFileRoute("/admin/usuarios")({ component: UsuariosPage });
 
 // ── Módulos do ERP ─────────────────────────────────────────────────────────────
+type ScreenItem = { slug: string; label: string; subscreens?: { slug: string; label: string }[] };
+
 const MODULES_CONFIG = [
   {
     slug: "frotas",
@@ -33,27 +35,37 @@ const MODULES_CONFIG = [
     description: "Checklists, Manutenção, Veículos, Motoristas",
     screens: [
       { slug: "frotas.dashboard",     label: "Dashboard" },
-      { slug: "frotas.checklists",    label: "Checklists" },
+      {
+        slug: "frotas.checklists",
+        label: "Checklists",
+        subscreens: [
+          { slug: "frotas.checklists.pesados",      label: "Pesados" },
+          { slug: "frotas.checklists.cesto_aereo",  label: "Cesto Aéreo" },
+          { slug: "frotas.checklists.operacionais", label: "Operacional" },
+          { slug: "frotas.checklists.maquinario",   label: "Maquinário" },
+          { slug: "frotas.checklists.munck",        label: "Munck" },
+        ],
+      },
       { slug: "frotas.checklist_new", label: "Abrir Checklist" },
       { slug: "frotas.manutencao",    label: "Manutenção" },
       { slug: "frotas.veiculos",      label: "Veículos" },
       { slug: "frotas.motoristas",    label: "Motoristas" },
       { slug: "frotas.lixeira",       label: "Lixeira" },
-    ],
+    ] as ScreenItem[],
   },
   {
     slug: "financeiro",
     label: "Financeiro Frotas",
     icon: TrendingDown,
     description: "Vínculos financeiros de OS",
-    screens: [] as { slug: string; label: string }[],
+    screens: [] as ScreenItem[],
   },
   {
     slug: "utilizadores",
     label: "Usuários",
     icon: ShieldCheck,
     description: "Gestão de utilizadores e acessos do ERP",
-    screens: [] as { slug: string; label: string }[],
+    screens: [] as ScreenItem[],
   },
 ];
 
@@ -110,13 +122,16 @@ function ModulesSection({
         const isActive = hasScreens ? selectedScreens.length > 0 : selected.includes(mod.slug);
         const isPartial = hasScreens && selectedScreens.length > 0 && selectedScreens.length < screenSlugs.length;
 
+        const allSubSlugs = mod.screens.flatMap((s) => s.subscreens?.map((ss) => ss.slug) ?? []);
+        const allSlugs = [...screenSlugs, ...allSubSlugs];
+
         const toggleModule = () => {
           if (!hasScreens) {
             onChange(toggleArr(selected, mod.slug));
           } else if (isActive) {
-            onChange(selected.filter((s) => !screenSlugs.includes(s)));
+            onChange(selected.filter((s) => !allSlugs.includes(s)));
           } else {
-            onChange([...selected.filter((s) => !screenSlugs.includes(s)), ...screenSlugs]);
+            onChange([...selected.filter((s) => !allSlugs.includes(s)), ...screenSlugs]);
           }
         };
 
@@ -153,12 +168,14 @@ function ModulesSection({
 
             {/* Screen list — shown when module is active and has screens */}
             {hasScreens && isActive && (
-              <div className="border-t border-primary/20 px-3 pt-2.5 pb-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <div className="border-t border-primary/20 px-3 pt-2.5 pb-3 space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Telas acessíveis
                 </p>
+
+                {/* Screens without subscreens — 2-col grid */}
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                  {mod.screens.map((screen) => {
+                  {mod.screens.filter((s) => !s.subscreens).map((screen) => {
                     const checked = selected.includes(screen.slug);
                     return (
                       <label key={screen.slug} className="flex items-center gap-2 cursor-pointer select-none group">
@@ -175,6 +192,62 @@ function ModulesSection({
                     );
                   })}
                 </div>
+
+                {/* Screens with subscreens (ex: Checklists) */}
+                {mod.screens.filter((s) => s.subscreens).map((screen) => {
+                  const checked = selected.includes(screen.slug);
+                  const subSlugs = screen.subscreens!.map((ss) => ss.slug);
+                  const activeSubCount = subSlugs.filter((s) => selected.includes(s)).length;
+                  return (
+                    <div key={screen.slug} className={`rounded border transition-all ${checked ? "border-primary/40" : "border-border"}`}>
+                      <label className="flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            if (checked) {
+                              onChange(selected.filter((s) => s !== screen.slug && !subSlugs.includes(s)));
+                            } else {
+                              onChange([...selected, screen.slug]);
+                            }
+                          }}
+                          className="h-3.5 w-3.5 rounded accent-primary"
+                        />
+                        <span className={`text-xs flex-1 ${checked ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                          {screen.label}
+                        </span>
+                        {checked && activeSubCount > 0 && (
+                          <span className="text-[10px] text-primary shrink-0">{activeSubCount}/{subSlugs.length} tipos</span>
+                        )}
+                      </label>
+                      {checked && (
+                        <div className="border-t border-primary/20 px-3 py-2">
+                          <p className="text-[10px] text-muted-foreground mb-1.5">
+                            Tipos de checklist <span className="italic">(sem seleção = todos)</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                            {screen.subscreens!.map((sub) => {
+                              const subChecked = selected.includes(sub.slug);
+                              return (
+                                <label key={sub.slug} className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={subChecked}
+                                    onChange={() => toggleScreen(sub.slug)}
+                                    className="h-3 w-3 rounded accent-primary"
+                                  />
+                                  <span className={`text-[11px] ${subChecked ? "text-foreground" : "text-muted-foreground"}`}>
+                                    {sub.label}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

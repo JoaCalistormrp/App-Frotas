@@ -1,0 +1,5 @@
+android/
+dist-electron/
+node_modules/
+.env
+.env.local

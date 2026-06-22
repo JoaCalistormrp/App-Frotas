@@ -39,7 +39,16 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   ELETRICISTA:    Wrench,
 };
 
+const CHECKLIST_TYPE_SLUGS: Record<string, string> = {
+  "frotas.checklists.pesados":      "PESADOS",
+  "frotas.checklists.cesto_aereo":  "CESTO_AEREO",
+  "frotas.checklists.operacionais": "OPERACIONAIS",
+  "frotas.checklists.maquinario":   "MAQUINARIO",
+  "frotas.checklists.munck":        "MUNCK",
+};
+
 function ChecklistContent() {
+  const { modules } = useAuth();
   const [templates, setTemplates] = useState<{ id: string; vehicle_type: string }[]>([]);
   const [vehicles, setVehicles]   = useState<Vehicle[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -58,6 +67,13 @@ function ChecklistContent() {
     });
   }, []);
 
+  const allowedTypes = Object.entries(CHECKLIST_TYPE_SLUGS)
+    .filter(([slug]) => modules.includes(slug))
+    .map(([, type]) => type);
+  const visibleTemplates = allowedTypes.length > 0
+    ? templates.filter((t) => allowedTypes.includes(t.vehicle_type))
+    : templates;
+
   // ── Etapa 3: Checklist ────────────────────────────────────────────────────
   if (activeVehicleId) {
     return (
@@ -73,7 +89,9 @@ function ChecklistContent() {
 
   // ── Etapa 2: Selecionar veículo ────────────────────────────────────────────
   if (selectedType) {
-    const filtered = vehicles.filter((v) => v.vehicle_type === selectedType);
+    const filtered = vehicles.filter(
+      (v) => v.vehicle_type === selectedType || (v.checklist_types ?? []).includes(selectedType)
+    );
     const label = TYPE_LABELS[selectedType] ?? selectedType;
 
     return (
@@ -112,17 +130,19 @@ function ChecklistContent() {
         <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-sm">
           <Loader2 className="size-4 animate-spin" /> Carregando…
         </div>
-      ) : templates.length === 0 ? (
+      ) : visibleTemplates.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground text-sm">
           <ClipboardList className="size-8 mx-auto mb-2 opacity-40" />
           Nenhum checklist configurado ainda.
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {templates.map((tpl) => {
+          {visibleTemplates.map((tpl) => {
             const label = TYPE_LABELS[tpl.vehicle_type] ?? tpl.vehicle_type;
             const Icon  = TYPE_ICONS[tpl.vehicle_type] ?? ClipboardList;
-            const count = vehicles.filter((v) => v.vehicle_type === tpl.vehicle_type).length;
+            const count = vehicles.filter(
+              (v) => v.vehicle_type === tpl.vehicle_type || (v.checklist_types ?? []).includes(tpl.vehicle_type)
+            ).length;
 
             return (
               <Card
