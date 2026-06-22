@@ -29,11 +29,11 @@ Deno.serve(async (req) => {
     order_number: string;
   };
 
-  // Buscar IDs dos utilizadores master
+  // Buscar IDs dos utilizadores master e admin
   const { data: masterRoles } = await supabaseAdmin
     .from("user_roles")
     .select("user_id")
-    .eq("role", "master");
+    .in("role", ["master", "admin"]);
 
   if (!masterRoles?.length) {
     return new Response(JSON.stringify({ sent: 0 }), {

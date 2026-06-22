@@ -1,9 +1,12 @@
 import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
-import { Truck, TrendingDown, ShieldCheck, ArrowRight, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Truck, TrendingDown, ShieldCheck, ArrowRight, Building2, Bell, BellOff, BellRing } from "lucide-react";
+import { registerPushForMaster } from "@/lib/push";
 
 export const Route = createFileRoute("/home")({
   component: ERPHome,
@@ -45,6 +48,47 @@ const ALL_MODULES = [
   },
 ];
 
+function NotificationToggle({ userId }: { userId: string }) {
+  const [perm, setPerm] = useState<NotificationPermission>("default");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if ("Notification" in window) setPerm(Notification.permission);
+  }, []);
+
+  const activate = async () => {
+    setBusy(true);
+    await registerPushForMaster(userId);
+    if ("Notification" in window) setPerm(Notification.permission);
+    setBusy(false);
+  };
+
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) return null;
+
+  if (perm === "granted") {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 px-2">
+        <BellRing className="size-3.5" />
+        <span className="hidden sm:inline">Notificações ativas</span>
+      </div>
+    );
+  }
+  if (perm === "denied") {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-2" title="Notificações bloqueadas — altere nas definições do browser">
+        <BellOff className="size-3.5" />
+        <span className="hidden sm:inline">Bloqueadas no browser</span>
+      </div>
+    );
+  }
+  return (
+    <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={activate} disabled={busy}>
+      <Bell className="size-3.5" />
+      {busy ? "A ativar…" : "Ativar notificações"}
+    </Button>
+  );
+}
+
 function ERPHome() {
   const { user, isAdmin, isViewer, isMechanic, isDriver, modules, loading } = useAuth();
 
@@ -75,7 +119,8 @@ function ERPHome() {
           {/* Top bar */}
           <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
             <SidebarTrigger />
-            <span className="text-sm font-semibold text-foreground/80">Início</span>
+            <span className="text-sm font-semibold text-foreground/80 flex-1">Início</span>
+            {isAdmin && user && <NotificationToggle userId={user.id} />}
           </header>
 
           {/* Main content */}
