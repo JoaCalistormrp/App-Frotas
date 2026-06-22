@@ -12,7 +12,7 @@ export const Route = createFileRoute("/admin/vehicles")({ component: VehiclesPag
 
 type Vehicle = {
   id: string; plate: string; model: string | null; brand: string | null; year: number | null;
-  renavam: string | null; vehicle_type: string; checklist_types: string[] | null; category: string | null; base: string | null;
+  renavam: string | null; vehicle_type: string; checklist_types?: string[] | null; category: string | null; base: string | null;
   sector: string | null; active: boolean; mileage: number | null; fuel_type: string | null; document_url: string | null;
 };
 
@@ -61,9 +61,62 @@ function VehiclesPage() {
   });
 
   const remove = async (v: Vehicle) => {
-    if (!confirm(`Excluir veículo ${v.plate}?`)) return;
-    const { error } = await supabase.from("vehicles").delete().eq("id", v.id);
-    if (error) toast.error(error.message); else { toast.success("Excluído"); load(); }
+    if (!confirm(`Excluir veículo ${v.plate}? Esta ação é irreversível.`)) return;
+
+    // 1. Buscar checklists do veículo
+    const { data: ckRows } = await supabase.from("checklists").select("id").eq("vehicle_id", v.id);
+    const checklistIds = (ckRows ?? []).map((c: any) => c.id as string);
+
+    // 2. Buscar OS associadas aos checklists
+    let orderIds: string[] = [];
+    if (checklistIds.length > 0) {
+      const { data: osRows } = await supabase
+        .from("maintenance_orders")
+        .select("id")
+        .in("checklist_id", checklistIds);
+      orderIds = (osRows ?? []).map((o: any) => o.id as string);
+    }
+
+    // 3. Confirmar se há registos associados
+    if (checklistIds.length > 0 || orderIds.length > 0) {
+      const lines = [
+        `O veículo ${v.plate} tem registos associados:`,
+        checklistIds.length > 0 ? `• ${checklistIds.length} checklist(s)` : null,
+        orderIds.length > 0 ? `• ${orderIds.length} OS de manutenção (serão removidos vínculos financeiros)` : null,
+        "",
+        "Tudo será excluído permanentemente. Confirmar?",
+      ].filter(Boolean).join("\n");
+      if (!confirm(lines)) return;
+    }
+
+    try {
+      // 4. Remover vínculos financeiros
+      if (orderIds.length > 0) {
+        await (supabase as any).from("maintenance_financial_links").delete().in("maintenance_order_id", orderIds);
+        await (supabase as any).from("maintenance_os_link_finalized").delete().in("maintenance_order_id", orderIds);
+        // Soft delete das OS + liberar FK para checklists
+        await supabase.from("maintenance_orders").update({
+          deleted_at: new Date().toISOString(),
+          delete_reason: `Veículo ${v.plate} excluído`,
+          checklist_id: null,
+        } as never).in("id", orderIds);
+      }
+
+      // 5. Remover respostas e checklists
+      if (checklistIds.length > 0) {
+        await supabase.from("checklist_responses" as any).delete().in("checklist_id", checklistIds);
+        await supabase.from("checklists").delete().in("id", checklistIds);
+      }
+
+      // 6. Excluir veículo
+      const { error } = await supabase.from("vehicles").delete().eq("id", v.id);
+      if (error) throw error;
+
+      toast.success("Veículo excluído");
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
   return (

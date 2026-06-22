@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { findEmailByCpf } from "@/lib/staff.functions";
+import { registerPushForMaster } from "@/lib/push";
 
 type AuthCtx = {
   user: User | null;
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
+
     // onAuthStateChange trata apenas mudanças subsequentes (login/logout)
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       if (!initialSessionHandled) return;
@@ -113,6 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
   const signOut = async () => { await supabase.auth.signOut(); };
+
+  // Registo push automático para masters após login
+  useEffect(() => {
+    if (isMaster && user) {
+      registerPushForMaster(user.id).catch(console.warn);
+    }
+  }, [isMaster, user?.id]);
 
   const reloadModules = async () => {
     const uid = user?.id;

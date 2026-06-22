@@ -28,17 +28,12 @@ export default defineConfig(async ({ command }) => {
       VitePWA({
         registerType: "autoUpdate",
         manifest: false,
-        workbox: {
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
+        injectManifest: {
           globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
           globIgnores: ["server/**", "*.bundled.js"],
-          navigateFallback: null,
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-              handler: "NetworkFirst",
-              options: { cacheName: "supabase-cache", networkTimeoutSeconds: 10 },
-            },
-          ],
         },
         devOptions: { enabled: false },
       }),

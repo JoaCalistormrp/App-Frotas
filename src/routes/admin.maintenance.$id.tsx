@@ -360,6 +360,12 @@ function OrderForm() {
       } else {
         const { error } = await supabase.from("maintenance_orders").update(order as never).eq("id", id);
         if (error) throw new Error(error.message);
+        // Notificar masters se o status acabou de mudar para aguardando_aprovacao
+        if (order.status === "aguardando_aprovacao" && savedStatus !== "aguardando_aprovacao") {
+          supabase.functions.invoke("notify-master", {
+            body: { order_id: id, order_number: orderNumber ?? order.order_number },
+          }).catch(console.warn);
+        }
         setSavedStatus(order.status);
         toast.success("Atualizada");
       }

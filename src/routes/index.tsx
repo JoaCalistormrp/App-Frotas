@@ -172,7 +172,7 @@ function AuthScreen() {
 
 // ================= APP SHELL (MOTORISTAS E RESTANTE) =================
 
-export type Vehicle = { id: string; plate: string; model: string | null; vehicle_type: string; checklist_types: string[] | null; sector: string | null; base: string | null };
+export type Vehicle = { id: string; plate: string; model: string | null; vehicle_type: string; checklist_types?: string[] | null; sector: string | null; base: string | null };
 
 function AppShell({ onSignOut }: { onSignOut: () => void }) {
   const { isAdmin, user } = useAuth();
