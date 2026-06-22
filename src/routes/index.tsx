@@ -732,7 +732,7 @@ function compressImage(file: File, maxPx = 1280, quality = 0.75): Promise<File> 
   });
 }
 
-export function ChecklistRunner({ vehicleId, onClose, onSubmitted, embedded = false }: { vehicleId: string; onClose: () => void; onSubmitted?: () => void; embedded?: boolean }) {
+export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted, embedded = false }: { vehicleId: string; checklistType?: string; onClose: () => void; onSubmitted?: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
@@ -748,7 +748,9 @@ export function ChecklistRunner({ vehicleId, onClose, onSubmitted, embedded = fa
       const { data: v } = await supabase.from("vehicles").select("*").eq("id", vehicleId).single();
       if (!v) return;
       setVehicle(v);
-      const { data: tpl } = await supabase.from("checklist_templates").select("id").eq("vehicle_type", v.vehicle_type).single();
+      // Usar o tipo selecionado pelo utilizador; fallback para vehicle_type
+      const typeToLoad = checklistType ?? v.vehicle_type;
+      const { data: tpl } = await supabase.from("checklist_templates").select("id").eq("vehicle_type", typeToLoad as never).single();
       if (!tpl) return;
       setTemplateId(tpl.id);
       const { data: c } = await supabase.from("checklist_categories").select("*").eq("template_id", tpl.id).order("sort_order");
@@ -762,7 +764,7 @@ export function ChecklistRunner({ vehicleId, onClose, onSubmitted, embedded = fa
         setResponses(init);
       }
     })();
-  }, [vehicleId]);
+  }, [vehicleId, checklistType]);
 
   const setStatus = (itemId: string, status: Resp["status"]) =>
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], status } }));
@@ -859,7 +861,10 @@ export function ChecklistRunner({ vehicleId, onClose, onSubmitted, embedded = fa
       <main className={isEmbedded ? "flex-1 space-y-4 pb-4" : "max-w-3xl mx-auto px-4 py-4 space-y-4"}>
         <Card className="p-4 space-y-3">
           <div><Label>Itinerário / Destino</Label><Input value={itinerary} onChange={(e) => setItinerary(e.target.value)} /></div>
-          <div><Label>Odômetro</Label><Input type="number" value={odometer} onChange={(e) => setOdometer(e.target.value)} /></div>
+          <div>
+            <Label>{vehicle.vehicle_type === "MAQUINARIO" ? "Horímetro" : "Odômetro"}</Label>
+            <Input type="number" value={odometer} onChange={(e) => setOdometer(e.target.value)} />
+          </div>
         </Card>
 
         {cats.map((cat) => (

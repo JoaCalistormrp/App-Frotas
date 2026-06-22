@@ -116,6 +116,7 @@ function MotoristaChecklist() {
       <div className="-mx-4 sm:-mx-6 -mb-4 sm:-mb-6">
         <ChecklistRunner
           vehicleId={activeVehicleId}
+          checklistType={selectedType ?? undefined}
           onClose={() => setActiveVehicleId(null)}
           onSubmitted={signOut}
           embedded

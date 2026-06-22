@@ -1,6 +1,9 @@
 -- Seed checklist template: MAQUINÁRIO
 -- Nota: este checklist usa HORÍMETRO em vez de odômetro (campo será adaptado na UI futuramente)
 
+-- Adicionar MAQUINARIO ao enum vehicle_type (não existia na definição original)
+ALTER TYPE public.vehicle_type ADD VALUE IF NOT EXISTS 'MAQUINARIO';
+
 DO $$
 DECLARE
   v_tpl_id uuid;

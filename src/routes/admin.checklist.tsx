@@ -80,6 +80,7 @@ function ChecklistContent() {
       <div className="-mx-4 md:-mx-6 -mb-4 md:-mb-6">
         <ChecklistRunner
           vehicleId={activeVehicleId}
+          checklistType={selectedType ?? undefined}
           onClose={() => setActiveVehicleId(null)}
           embedded
         />
