@@ -82,6 +82,53 @@ function Index() {
   return <Navigate to="/home" />;
 }
 
+// --- Botão de instalação PWA ---
+function InstallButton() {
+  const [installEvent, setInstallEvent] = useState<any>(null);
+  const [installed, setInstalled] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia?.("(display-mode: standalone)").matches) {
+      setInstalled(true);
+      return;
+    }
+    const onPrompt = (e: Event) => { e.preventDefault(); setInstallEvent(e); };
+    const onInstalled = () => setInstalled(true);
+    window.addEventListener("beforeinstallprompt", onPrompt as any);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt as any);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  if (installed) return null;
+
+  if (installEvent) {
+    const handleInstall = async () => {
+      setBusy(true);
+      installEvent.prompt();
+      const { outcome } = await installEvent.userChoice;
+      if (outcome === "accepted") setInstalled(true);
+      setInstallEvent(null);
+      setBusy(false);
+    };
+    return (
+      <Button variant="outline" className="w-full h-11 rounded-full gap-2 text-sm font-semibold" onClick={handleInstall} disabled={busy}>
+        <Smartphone className="size-4" />
+        {busy ? "A instalar…" : "Instalar App"}
+      </Button>
+    );
+  }
+
+  return (
+    <Link to="/download" className="w-full h-11 rounded-full border border-border flex items-center justify-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary hover:border-primary transition-colors">
+      <Smartphone className="size-4" /> Baixar o Aplicativo
+    </Link>
+  );
+}
+
 // --- TELA DE LOGIN ESTILO MOBILE APP ---
 function AuthScreen() {
   const { signInUnified } = useAuth();
@@ -155,10 +202,8 @@ function AuthScreen() {
         </form>
 
         {/* Rodapé - App Download */}
-        <div className="mt-8 mb-2 text-center">
-          <Link to="/download" className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-2">
-            <Smartphone className="size-4" /> Baixar o Aplicativo
-          </Link>
+        <div className="mt-6 mb-2">
+          <InstallButton />
         </div>
       </Card>
       
