@@ -1,7 +1,7 @@
 {
-  "name": "Grupo Tomaz - Checklist de Frota",
-  "short_name": "Tomaz Checklist",
-  "description": "Checklist digital de veículos do Grupo Tomaz",
+  "name": "Grupo Tomaz - ERP",
+  "short_name": "Grupo Tomaz ERP",
+  "description": "Grupo Tomaz ERP",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
