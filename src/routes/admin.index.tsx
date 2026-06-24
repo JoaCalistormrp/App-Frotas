@@ -14,7 +14,7 @@ type Ck = { id: string; created_at: string; has_issues: boolean; vehicles: { pla
 function daysUntil(d: string | null): number | null {
   if (!d) return null;
   const x = new Date(d + "T00:00:00"); const t = new Date(); t.setHours(0,0,0,0);
-  return Math.floor((x.getTime() - t.getTime()) / 86400000);
+  return Math.floor((x.getTime() - t.getTime()) / 86400000); 
 }
 
 const cards = [
@@ -156,3 +156,4 @@ function AdminDashboard() {
     </div>
   );
 }
+

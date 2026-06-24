@@ -5,7 +5,7 @@ import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Truck, TrendingDown, ShieldCheck, ArrowRight, Building2, Bell, BellOff, BellRing } from "lucide-react";
+import { Truck, TrendingDown, ShieldCheck, ArrowRight, Building2, Bell, BellOff, BellRing, Gavel } from "lucide-react";
 import { registerPushForMaster } from "@/lib/push";
 
 export const Route = createFileRoute("/home")({
@@ -45,6 +45,17 @@ const ALL_MODULES = [
     iconColor: "text-violet-600",
     badge: "Ativo",
     badgeBg: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+  },
+  {
+    slug: "licitacao",
+    title: "Licitações",
+    description: "Acompanhamento de licitações em curso — kanban por status, vencimentos e contratos.",
+    url: "/licitacao",
+    icon: Gavel,
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-600",
+    badge: "Ativo",
+    badgeBg: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   },
 ];
 
@@ -112,7 +123,7 @@ function ERPHome() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-backgroundl">
         <ERPSidebar />
 
         <div className="flex-1 flex flex-col min-w-0">

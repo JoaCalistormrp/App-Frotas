@@ -71,13 +71,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cpfToEmail = (cpf: string) => `${cpf.replace(/\D/g, "")}@frota.local`;
+  // Mapeia erros internos do Supabase para mensagens genéricas
+  // Ref: "The Web Application Hacker's Handbook" Cap.6 — não revelar detalhes de autenticação
+  const sanitizeAuthError = (msg: string | undefined): string => {
+    if (!msg) return "Ocorreu um erro. Tente novamente.";
+    const lower = msg.toLowerCase();
+    if (lower.includes("invalid login") || lower.includes("invalid credentials") ||
+        lower.includes("email not confirmed") || lower.includes("user not found") ||
+        lower.includes("wrong password"))
+      return "Credenciais inválidas.";
+    if (lower.includes("too many") || lower.includes("rate limit"))
+      return "Muitas tentativas. Aguarde alguns minutos.";
+    if (lower.includes("network") || lower.includes("fetch"))
+      return "Erro de rede. Verifique a sua ligação.";
+    return "Não foi possível autenticar. Tente novamente.";
+  };
+
   const signIn = async (cpf: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email: cpfToEmail(cpf), password });
-    return { error: error?.message };
+    return { error: error ? sanitizeAuthError(error.message) : undefined };
   };
   const signInEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message };
+    return { error: error ? sanitizeAuthError(error.message) : undefined };
   };
   const signInUnified = async (cpfOrEmail: string, password: string) => {
     const trimmed = cpfOrEmail.trim();
@@ -85,8 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isCpf = !trimmed.includes("@") && digits.length === 11;
 
     if (isCpf) {
-      // Look up the real email via server function (supabaseAdmin, no auth required)
-      let email = `${digits}@frota.local`; // legacy driver fallback
+      let email = `${digits}@frota.local`;
       try {
         const result = await findEmailByCpf({ data: { cpf: trimmed } });
         if (result?.email) email = result.email;
@@ -94,11 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // server function unavailable — proceed with fallback
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message };
+      return { error: error ? sanitizeAuthError(error.message) : undefined };
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email: trimmed, password });
-    return { error: error?.message };
+    return { error: error ? sanitizeAuthError(error.message) : undefined };
   };
   const signUp = async (fullName: string, cpf: string, cnh: string, password: string) => {
     const cleanCpf = cpf.replace(/\D/g, "");

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MotoristaRouteImport } from './routes/motorista'
 import { Route as MechanicRouteImport } from './routes/mechanic'
+import { Route as LicitacaoRouteImport } from './routes/licitacao'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as FinanceiroRouteImport } from './routes/financeiro'
 import { Route as DownloadRouteImport } from './routes/download'
@@ -35,6 +36,11 @@ const MotoristaRoute = MotoristaRouteImport.update({
 const MechanicRoute = MechanicRouteImport.update({
   id: '/mechanic',
   path: '/mechanic',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LicitacaoRoute = LicitacaoRouteImport.update({
+  id: '/licitacao',
+  path: '/licitacao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/download': typeof DownloadRoute
   '/financeiro': typeof FinanceiroRoute
   '/home': typeof HomeRoute
+  '/licitacao': typeof LicitacaoRoute
   '/mechanic': typeof MechanicRoute
   '/motorista': typeof MotoristaRoute
   '/admin/checklist': typeof AdminChecklistRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/download': typeof DownloadRoute
   '/financeiro': typeof FinanceiroRoute
   '/home': typeof HomeRoute
+  '/licitacao': typeof LicitacaoRoute
   '/mechanic': typeof MechanicRoute
   '/motorista': typeof MotoristaRoute
   '/admin/checklist': typeof AdminChecklistRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/download': typeof DownloadRoute
   '/financeiro': typeof FinanceiroRoute
   '/home': typeof HomeRoute
+  '/licitacao': typeof LicitacaoRoute
   '/mechanic': typeof MechanicRoute
   '/motorista': typeof MotoristaRoute
   '/admin/checklist': typeof AdminChecklistRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/financeiro'
     | '/home'
+    | '/licitacao'
     | '/mechanic'
     | '/motorista'
     | '/admin/checklist'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/financeiro'
     | '/home'
+    | '/licitacao'
     | '/mechanic'
     | '/motorista'
     | '/admin/checklist'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/financeiro'
     | '/home'
+    | '/licitacao'
     | '/mechanic'
     | '/motorista'
     | '/admin/checklist'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   DownloadRoute: typeof DownloadRoute
   FinanceiroRoute: typeof FinanceiroRoute
   HomeRoute: typeof HomeRoute
+  LicitacaoRoute: typeof LicitacaoRoute
   MechanicRoute: typeof MechanicRoute
   MotoristaRoute: typeof MotoristaRoute
 }
@@ -253,6 +266,13 @@ declare module '@tanstack/react-router' {
       path: '/mechanic'
       fullPath: '/mechanic'
       preLoaderRoute: typeof MechanicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/licitacao': {
+      id: '/licitacao'
+      path: '/licitacao'
+      fullPath: '/licitacao'
+      preLoaderRoute: typeof LicitacaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -406,6 +426,7 @@ const rootRouteChildren: RootRouteChildren = {
   DownloadRoute: DownloadRoute,
   FinanceiroRoute: FinanceiroRoute,
   HomeRoute: HomeRoute,
+  LicitacaoRoute: LicitacaoRoute,
   MechanicRoute: MechanicRoute,
   MotoristaRoute: MotoristaRoute,
 }

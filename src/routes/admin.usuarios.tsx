@@ -16,7 +16,8 @@ import {
 import { toast } from "sonner";
 import {
   Users, Plus, ShieldCheck, Eye, Wrench, Truck, TrendingDown,
-  KeyRound, Trash2, Loader2, SlidersHorizontal, X, UserCog, RefreshCw,
+  KeyRound, Trash2, Loader2, SlidersHorizontal, X, UserCog, RefreshCw, Gavel,
+  Monitor, CheckCircle2, XCircle,
 } from "lucide-react";
 import {
   listStaff, createStaffUser, updateStaffUser, deleteStaffUser, resetStaffPassword,
@@ -65,6 +66,13 @@ const MODULES_CONFIG = [
     label: "Usuários",
     icon: ShieldCheck,
     description: "Gestão de utilizadores e acessos do ERP",
+    screens: [] as ScreenItem[],
+  },
+  {
+    slug: "licitacao",
+    label: "Licitações",
+    icon: Gavel,
+    description: "Módulo de licitações — acesso restrito por dispositivo autorizado",
     screens: [] as ScreenItem[],
   },
 ];
@@ -602,6 +610,19 @@ function UsuariosPage() {
                   </section>
                 </>
 
+                {/* Dispositivos autorizados – Licitação */}
+                {(editForm.modules.includes("licitacao") || editUser.roles.some(r => ["admin","master"].includes(r))) && (
+                  <>
+                    <Separator />
+                    <section className="space-y-3">
+                      <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
+                        <Gavel className="size-3.5" /> Dispositivos — Licitações
+                      </h3>
+                      <DevicesPanel userId={editUser.id} />
+                    </section>
+                  </>
+                )}
+
                 <Separator />
 
                 {/* Ações */}
@@ -660,6 +681,93 @@ function UsuariosPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Painel de dispositivos autorizados ──────────────────────────────────────
+import { supabase } from "@/integrations/supabase/client";
+
+type TrustedDevice = {
+  id: string;
+  user_id: string;
+  token: string;
+  device_label: string | null;
+  ip_address: string | null;
+  approved: boolean;
+  created_at: string;
+  approved_at: string | null;
+};
+
+function DevicesPanel({ userId }: { userId: string }) {
+  const [devices, setDevices] = useState<TrustedDevice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("licitacao_trusted_devices" as any)
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    setDevices((data ?? []) as any[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [userId]);
+
+  const approve = async (id: string) => {
+    setBusy(id);
+    await supabase
+      .from("licitacao_trusted_devices" as any)
+      .update({ approved: true, approved_at: new Date().toISOString() })
+      .eq("id", id);
+    setBusy(null);
+    load();
+  };
+
+  const revoke = async (id: string) => {
+    setBusy(id);
+    await supabase.from("licitacao_trusted_devices" as any).delete().eq("id", id);
+    setBusy(null);
+    load();
+  };
+
+  if (loading) return <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Carregando…</div>;
+
+  if (devices.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground italic">
+        Nenhum dispositivo registado. O utilizador acederá ao módulo pela primeira vez e o dispositivo aparecerá aqui para aprovação.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {devices.map((d) => (
+        <div key={d.id} className={`rounded-lg border px-3 py-2.5 flex items-start gap-3 text-xs ${d.approved ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800" : "border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800"}`}>
+          <Monitor className={`size-4 shrink-0 mt-0.5 ${d.approved ? "text-emerald-600" : "text-amber-600"}`} />
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <p className="font-semibold text-foreground truncate">{d.device_label ?? "Dispositivo desconhecido"}</p>
+            {d.ip_address && <p className="text-muted-foreground">IP: {d.ip_address}</p>}
+            <p className="text-muted-foreground">Registado: {new Date(d.created_at).toLocaleDateString("pt-BR")}</p>
+            {d.approved && d.approved_at && <p className="text-muted-foreground">Aprovado: {new Date(d.approved_at).toLocaleDateString("pt-BR")}</p>}
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            {!d.approved && (
+              <Button size="sm" className="h-6 text-[10px] px-2 gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => approve(d.id)} disabled={busy === d.id}>
+                {busy === d.id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                Aprovar
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 gap-1 text-rose-600 border-rose-300 hover:bg-rose-50" onClick={() => revoke(d.id)} disabled={busy === d.id}>
+              <XCircle className="size-3" /> Revogar
+            </Button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
