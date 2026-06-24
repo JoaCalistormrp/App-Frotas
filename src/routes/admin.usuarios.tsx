@@ -40,11 +40,12 @@ const MODULES_CONFIG = [
         slug: "frotas.checklists",
         label: "Checklists",
         subscreens: [
-          { slug: "frotas.checklists.pesados",      label: "Pesados" },
+          { slug: "frotas.checklists.pesados",        label: "Pesados" },
           { slug: "frotas.checklists.cesto_aereo",  label: "Cesto Aéreo" },
           { slug: "frotas.checklists.operacionais", label: "Operacional" },
           { slug: "frotas.checklists.maquinario",   label: "Maquinário" },
           { slug: "frotas.checklists.munck",        label: "Munck" },
+          { slug: "frotas.checklists.administrativo", label: "Administrativo" },
         ],
       },
       { slug: "frotas.checklist_new", label: "Abrir Checklist" },

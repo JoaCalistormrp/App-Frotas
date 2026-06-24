@@ -72,11 +72,12 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 };
 
 const CHECKLIST_TYPE_SLUGS: Record<string, string> = {
-  "frotas.checklists.pesados":      "PESADOS",
-  "frotas.checklists.cesto_aereo":  "CESTO_AEREO",
-  "frotas.checklists.operacionais": "OPERACIONAIS",
-  "frotas.checklists.maquinario":   "MAQUINARIO",
-  "frotas.checklists.munck":        "MUNCK",
+  "frotas.checklists.pesados":        "PESADOS",
+  "frotas.checklists.cesto_aereo":    "CESTO_AEREO",
+  "frotas.checklists.operacionais":   "OPERACIONAIS",
+  "frotas.checklists.maquinario":     "MAQUINARIO",
+  "frotas.checklists.munck":          "MUNCK",
+  "frotas.checklists.administrativo": "ADMINISTRATIVO",
 };
 
 function getAllowedTypes(modules: string[]): string[] | null {
