@@ -812,7 +812,14 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
   }, [vehicleId, checklistType]);
 
   const setStatus = (itemId: string, status: Resp["status"]) =>
-    setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], status } }));
+    setResponses((r) => ({
+      ...r,
+      [itemId]: {
+        ...r[itemId],
+        status,
+        ...(status !== "NAO_OK" ? { observation: "", photo: null, photoPreview: null } : {}),
+      },
+    }));
   const setObs = (itemId: string, observation: string) =>
     setResponses((r) => ({ ...r, [itemId]: { ...r[itemId], observation } }));
   const setPhoto = async (itemId: string, file: File | null) => {

@@ -216,8 +216,9 @@ function DetailModal({ id, onClose }: { id: string; onClose: () => void }) {
     (async () => {
       setLoading(true);
       const { data } = await supabase.from("checklist_responses")
-        .select("id, observation, photo_url, checklist_items(name)")
-        .eq("checklist_id", id).eq("status", "NAO_OK");
+        .select("id, observation, photo_url, status, checklist_items(name)")
+        .eq("checklist_id", id)
+        .or("status.eq.NAO_OK,photo_url.not.is.null,observation.not.is.null");
 
       const list = (data ?? []).map((r: any) => ({
         id: r.id, item: r.checklist_items?.name ?? "Item", obs: r.observation ?? "", photo_url: r.photo_url
