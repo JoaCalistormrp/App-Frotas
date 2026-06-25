@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 
@@ -57,24 +57,21 @@ function AdminLayout() {
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <ERPSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10">
-            <SidebarTrigger className="ml-2" />
-            <div className="ml-3 flex items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground/60">ERP</span>
-              <span className="text-muted-foreground/40">/</span>
-              <span className="font-semibold">Frotas</span>
-            </div>
-          </header>
-          <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
-            <Outlet />
-          </main>
-         
-        </div>
+    <div className="min-h-screen flex w-full bg-background">
+      <ERPSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10">
+          <SidebarTrigger className="ml-2" />
+          <div className="ml-3 flex items-center gap-1.5 text-sm">
+            <span className="text-muted-foreground/60">ERP</span>
+            <span className="text-muted-foreground/40">/</span>
+            <span className="font-semibold">Frotas</span>
+          </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
+          <Outlet />
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }

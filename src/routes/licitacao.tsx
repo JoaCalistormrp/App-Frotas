@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -110,21 +110,19 @@ function LicitacaoPage() {
   if (!user) return <Navigate to="/" />;
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <ERPSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-            <SidebarTrigger />
-            <Gavel className="size-4 text-primary" />
-            <span className="text-sm font-semibold">Licitações</span>
-          </header>
-          <main className="flex-1 overflow-hidden">
-            <LicitacaoBoard userId={user.id} isAdmin={isAdmin} />
-          </main>
-        </div>
+    <div className="min-h-screen flex w-full bg-background">
+      <ERPSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
+          <SidebarTrigger />
+          <Gavel className="size-4 text-primary" />
+          <span className="text-sm font-semibold">Licitações</span>
+        </header>
+        <main className="flex-1 overflow-hidden">
+          <LicitacaoBoard userId={user.id} isAdmin={isAdmin} />
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -177,21 +177,19 @@ function FinanceiroFrotas() {
   if (!modules.includes("financeiro")) return <Navigate to="/home" />;
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <ERPSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-            <SidebarTrigger />
-            <TrendingDown className="size-4 text-emerald-600" />
-            <span className="text-sm font-semibold">Financeiro Frotas</span>
-          </header>
-          <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-            <FinanceiroContent />
-          </main>
-        </div>
+    <div className="min-h-screen flex w-full bg-background">
+      <ERPSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
+          <SidebarTrigger />
+          <TrendingDown className="size-4 text-emerald-600" />
+          <span className="text-sm font-semibold">Financeiro Frotas</span>
+        </header>
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+          <FinanceiroContent />
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
 

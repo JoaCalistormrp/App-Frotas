@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,33 +21,31 @@ function MotoristaPage() {
   const hasFrotasAccess = modules.some((s) => s === "frotas" || s.startsWith("frotas."));
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <ERPSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-            <SidebarTrigger />
-            <ClipboardList className="size-4 text-primary" />
-            <span className="text-sm font-semibold">Checklist Diário</span>
-          </header>
-          <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-            {hasFrotasAccess ? (
-              <MotoristaChecklist />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-                <ClipboardList className="size-12 text-muted-foreground opacity-30" />
-                <div>
-                  <p className="font-semibold text-base">Sem acesso configurado</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Contacte o administrador para ativar o módulo de Frotas no seu perfil.
-                  </p>
-                </div>
+    <div className="min-h-screen flex w-full bg-background">
+      <ERPSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
+          <SidebarTrigger />
+          <ClipboardList className="size-4 text-primary" />
+          <span className="text-sm font-semibold">Checklist Diário</span>
+        </header>
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+          {hasFrotasAccess ? (
+            <MotoristaChecklist />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+              <ClipboardList className="size-12 text-muted-foreground opacity-30" />
+              <div>
+                <p className="font-semibold text-base">Sem acesso configurado</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Contacte o administrador para ativar o módulo de Frotas no seu perfil.
+                </p>
               </div>
-            )}
-          </main>
-        </div>
+            </div>
+          )}
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
 

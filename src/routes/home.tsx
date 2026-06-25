@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
@@ -122,17 +122,16 @@ function ERPHome() {
   const firstName = user.email?.split("@")[0] ?? "utilizador";
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-backgroundl">
-        <ERPSidebar />
+    <div className="min-h-screen flex w-full bg-backgroundl">
+      <ERPSidebar />
 
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar */}
-          <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-            <SidebarTrigger />
-            <span className="text-sm font-semibold text-foreground/80 flex-1">Início</span>
-            {isAdmin && user && <NotificationToggle userId={user.id} />}
-          </header>
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
+          <SidebarTrigger />
+          <span className="text-sm font-semibold text-foreground/80 flex-1">Início</span>
+          {isAdmin && user && <NotificationToggle userId={user.id} />}
+        </header>
 
           {/* Main content */}
           <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
@@ -187,7 +186,6 @@ function ERPHome() {
             </div>
           </main>
         </div>
-      </div>
-    </SidebarProvider>
+    </div>
   );
 }

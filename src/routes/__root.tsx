@@ -1,8 +1,9 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 function NotFoundComponent() {
   return (
@@ -77,10 +78,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const isLogin = useRouterState({ select: (s) => s.location.pathname === "/" });
+
   return (
     <AuthProvider>
-      <Outlet />
-      <Toaster richColors position="top-center" />
+      {isLogin ? (
+        <>
+          <Outlet />
+          <Toaster richColors position="top-center" />
+        </>
+      ) : (
+        <SidebarProvider>
+          <Outlet />
+          <Toaster richColors position="top-center" />
+        </SidebarProvider>
+      )}
     </AuthProvider>
   );
 }
