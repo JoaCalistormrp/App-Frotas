@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, FileDown, Save, Trash2, XIcon, Search, Paperclip, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileDown, Save, Trash2, XIcon, Search, Paperclip, AlertTriangle, Plus } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding, BASE_CODES } from "@/lib/admin-pdf";
@@ -330,12 +330,17 @@ function OrderForm() {
     setOrder((prev) => ({ ...prev, items_replaced: newList.join(", ") }));
   };
 
-  const handleItemKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
+  const addCurrentItem = () => {
     const value = itemsInput.trim().toUpperCase();
     if (value) updateItems([...itemsList, value]);
     setItemsInput("");
+    itemInputRef.current?.focus();
+  };
+
+  const handleItemKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    addCurrentItem();
   };
 
   const removeItem = (index: number) => {
@@ -356,7 +361,7 @@ function OrderForm() {
         const { data, error } = await supabase.from("maintenance_orders").insert(payload as never).select("id, order_number").single();
         if (error) throw new Error(error.message);
         toast.success(`Ordem ${data?.order_number} criada`);
-        if (data?.id) nav({ to: "/admin/maintenance/$id", params: { id: data.id } });
+        if (data?.id) nav({to: "/admin/maintenance/$id", params: { id: data.id }});
       } else {
         const { error } = await supabase.from("maintenance_orders").update(order as never).eq("id", id);
         if (error) throw new Error(error.message);
@@ -485,24 +490,37 @@ function OrderForm() {
           <div className="md:col-span-3"><Label className="text-xs">Descrição da solução</Label><Textarea rows={3} value={order.solution_description ?? ""} onChange={(e) => setOrder({ ...order, solution_description: e.target.value })} /></div>
           <div className="md:col-span-3">
             <Label className="text-xs">Itens trocados *</Label>
-            <div
-              className="min-h-[72px] border border-border rounded-md bg-input p-2 flex flex-wrap gap-1.5 cursor-text"
-              onClick={() => itemInputRef.current?.focus()}
-            >
-              {itemsList.map((item, i) => (
-                <span key={i} className="inline-flex items-center gap-1 bg-primary/15 text-primary text-xs font-semibold px-2 py-1 rounded">
-                  {item}
-                  <button type="button" onClick={() => removeItem(i)} className="hover:text-destructive transition-colors"><XIcon className="size-3" /></button>
-                </span>
-              ))}
-              <input
-                ref={itemInputRef}
-                value={itemsInput}
-                onChange={(e) => setItemsInput(e.target.value)}
-                onKeyDown={handleItemKeyDown}
-                className="flex-1 min-w-[180px] outline-none bg-transparent text-sm py-0.5"
-                placeholder={itemsList.length === 0 ? "Digite um item e pressione Enter…" : ""}
-              />
+            <div className="flex gap-2">
+              <div
+                className="flex-1 min-h-[72px] border border-border rounded-md bg-input p-2 flex flex-wrap gap-1.5 cursor-text"
+                onClick={() => itemInputRef.current?.focus()}
+              >
+                {itemsList.map((item, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 bg-primary/15 text-primary text-xs font-semibold px-2 py-1 rounded">
+                    {item}
+                    <button type="button" onClick={() => removeItem(i)} className="hover:text-destructive transition-colors"><XIcon className="size-3" /></button>
+                  </span>
+                ))}
+                <input
+                  ref={itemInputRef}
+                  value={itemsInput}
+                  onChange={(e) => setItemsInput(e.target.value)}
+                  onKeyDown={handleItemKeyDown}
+                  enterKeyHint="done"
+                  className="flex-1 min-w-[120px] outline-none bg-transparent text-sm py-0.5"
+                  placeholder={itemsList.length === 0 ? "Adicione um item…" : ""}
+                />
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="self-start mt-0 shrink-0 size-10"
+                onClick={addCurrentItem}
+                disabled={!itemsInput.trim()}
+              >
+                <Plus className="size-4" />
+              </Button>
             </div>
           </div>
           <div className="md:col-span-3"><Label className="text-xs">Observações</Label><Textarea rows={3} value={order.observations} onChange={(e) => setOrder({ ...order, observations: e.target.value })} /></div>
