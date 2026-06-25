@@ -171,30 +171,44 @@ function HistoryPage() {
         {!loading && filtered.length === 0 && <div className="text-sm text-muted-foreground">Nenhum resultado.</div>}
         <div className="divide-y divide-border max-h-[60vh] overflow-auto">
           {filtered.map((c) => (
-            <div key={c.id} className="py-3 flex items-center gap-2 text-sm hover:bg-muted/30 px-2 rounded-md">
-              <div className="flex-1 min-w-0">
-                <div className="font-bold truncate">{c.vehicles?.plate ?? "—"} <span className="text-xs font-normal text-muted-foreground">• {c.profiles?.full_name ?? "—"}</span></div>
-                <div className="text-xs text-muted-foreground truncate">{new Date(c.created_at).toLocaleString("pt-BR")}{c.itinerary ? ` • ${c.itinerary}` : ""}{c.vehicles?.base ? ` • ${c.vehicles.base}` : ""}</div>
+            <div key={c.id} className="py-3 flex flex-col gap-2 text-sm hover:bg-muted/30 px-2 rounded-md">
+              {/* Linha 1: placa + motorista + badge de status */}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="font-bold truncate">
+                  {c.vehicles?.plate ?? "—"}
+                  <span className="text-xs font-normal text-muted-foreground ml-1">• {c.profiles?.full_name ?? "—"}</span>
+                </div>
+                {c.has_issues
+                  ? <span className="text-destructive flex items-center gap-1 text-xs shrink-0"><AlertTriangle className="size-3" />Falhas</span>
+                  : <span className="text-green-600 flex items-center gap-1 text-xs shrink-0"><CheckCircle2 className="size-3" />OK</span>}
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+
+              {/* Linha 2: data + itinerário + base */}
+              <div className="text-xs text-muted-foreground">
+                {new Date(c.created_at).toLocaleString("pt-BR")}
+                {c.itinerary ? ` • ${c.itinerary}` : ""}
+                {c.vehicles?.base ? ` • ${c.vehicles.base}` : ""}
+              </div>
+
+              {/* Linha 3: ações */}
+              <div className="flex items-center gap-2 flex-wrap">
                 {c.has_issues && (
-                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDetailId(c.id)}>
-                    <Search className="size-4 mr-1" />Ver Falhas
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDetailId(c.id)}>
+                    <Search className="size-3.5 mr-1" />Ver Falhas
                   </Button>
                 )}
                 {c.has_issues && (isAdmin || isMaster) && (
                   osMap[c.id]
-                    ? <Link to="/admin/maintenance/$id" params={{ id: osMap[c.id].id }} className="text-xs flex items-center gap-1 text-primary hover:underline font-semibold">
+                    ? <Link to="/admin/maintenance/$id" params={{ id: osMap[c.id].id }} className="h-7 px-2 text-xs flex items-center gap-1 text-primary hover:underline font-semibold border border-primary/30 rounded-md">
                         <Wrench className="size-3" />OS N°{osMap[c.id].order_number}
                       </Link>
-                    : <Link to="/admin/maintenance/$id" params={{ id: "new" }} search={{ checklist: c.id } as never} className="text-xs flex items-center gap-1 text-amber-600 hover:underline">
+                    : <Link to="/admin/maintenance/$id" params={{ id: "new" }} search={{ checklist: c.id } as never} className="h-7 px-2 text-xs flex items-center gap-1 text-amber-600 hover:underline border border-amber-300 rounded-md">
                         <Wrench className="size-3" />Abrir OS
                       </Link>
                 )}
-                {(c.photo_count ?? 0) > 0 && <span className="text-xs text-muted-foreground">{c.photo_count} foto(s)</span>}
-                {c.has_issues 
-                  ? <span className="text-destructive flex items-center gap-1 text-xs"><AlertTriangle className="size-3" />Falhas</span>
-                  : <span className="text-green-600 flex items-center gap-1 text-xs"><CheckCircle2 className="size-3" />OK</span>}
+                {(c.photo_count ?? 0) > 0 && (
+                  <span className="text-xs text-muted-foreground">{c.photo_count} foto(s)</span>
+                )}
               </div>
             </div>
           ))}
