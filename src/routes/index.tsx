@@ -860,8 +860,9 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
     }).select("id").single();
     if (error || !ck) { setBusy(false); return toast.error(error?.message ?? "Erro"); }
 
-    // Upload photos for items marked NAO_OK
+    // Upload photos
     const photoPaths: Record<string, string> = {};
+    let photoFailures = 0;
     for (const i of items) {
       const f = responses[i.id]?.photo;
       if (!f) continue;
@@ -870,7 +871,9 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
         .from("checklist-photos")
         .upload(path, f, { upsert: true, contentType: "image/jpeg" });
       if (!upErr) photoPaths[i.id] = path;
+      else photoFailures++;
     }
+    if (photoFailures > 0) toast.warning(`${photoFailures} foto(s) não enviada(s). O checklist foi guardado, mas as fotos falharam.`);
     const rows = items.map((i) => ({
       checklist_id: ck.id, item_id: i.id,
       status: responses[i.id].status as "OK" | "NAO_OK" | "NA",
