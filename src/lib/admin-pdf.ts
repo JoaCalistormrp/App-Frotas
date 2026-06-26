@@ -37,7 +37,7 @@ export const BASE_CODES = [
   { code: "CDA", label: "Capela do Alto" },
   { code: "TDS", label: "Taboão da Serra" },
   { code: "PLN", label: "Paulínia" },
-  { code: "MDC", label: "Mogi das Cruzes" },
+  { code: "MDC", label: "Mogi das Cruzes"},
   { code: "PRB", label: "Peruíbe" },
   { code: "ITR", label: "Itararé" },
   { code: "FZD", label: "Fazenda" },

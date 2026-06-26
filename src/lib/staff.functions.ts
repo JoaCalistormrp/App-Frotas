@@ -79,6 +79,13 @@ export const listStaff = createServerFn({ method: "POST" })
     return Array.from(byUser.values()).sort((a, b) => (a.full_name ?? a.email).localeCompare(b.full_name ?? b.email));
   });
 
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+  const arr = new Uint8Array(14);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => chars[b % chars.length]).join("");
+}
+
 const cpfSchema = z
   .string()
   .max(18)
@@ -118,8 +125,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
     const email = data.email?.trim() || (cpfDigits.length >= 11 ? `${cpfDigits}@grupotomaz.com.br` : "");
     if (!email) throw new Error("Informe um e-mail ou um CPF válido (11 dígitos) para gerar o acesso.");
 
-    // Password: CPF digits if available, else temporary
-    const password = cpfDigits.length >= 11 ? cpfDigits : `Temp${Math.random().toString(36).slice(2, 8)}!`;
+    const password = generateTempPassword();
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -144,7 +150,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
         throw new Error(`Módulos: ${mErr.message}`);
       }
     }
-    return { id: uid };
+    return { id: uid, tempPassword: password };
   });
 
 export const updateStaffUser = createServerFn({ method: "POST" })

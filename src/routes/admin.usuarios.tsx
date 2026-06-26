@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Users, Plus, ShieldCheck, Eye, Wrench, Truck, TrendingDown,
   KeyRound, Trash2, Loader2, SlidersHorizontal, X, UserCog, RefreshCw, Gavel,
-  Monitor, CheckCircle2, XCircle,
+  Monitor, CheckCircle2, XCircle, Copy,
 } from "lucide-react";
 import {
   listStaff, createStaffUser, updateStaffUser, deleteStaffUser, resetStaffPassword,
@@ -281,9 +281,10 @@ function UsuariosPage() {
   const [showFilter, setShowFilter] = useState(false);
 
   // New user dialog
-  const [showNew, setShowNew]   = useState(false);
-  const [newForm, setNewForm]   = useState<NewForm>(EMPTY_NEW);
-  const [creating, setCreating] = useState(false);
+  const [showNew, setShowNew]       = useState(false);
+  const [newForm, setNewForm]       = useState<NewForm>(EMPTY_NEW);
+  const [creating, setCreating]     = useState(false);
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
 
   // Edit sheet
   const [editUser, setEditUser]   = useState<StaffUser | null>(null);
@@ -332,9 +333,10 @@ function UsuariosPage() {
   const submitNew = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true);
     try {
-      await createFn({ data: { ...newForm, role: newForm.role as never } });
-      toast.success("Utilizador criado! Senha inicial: CPF sem formatação (ou a definida).");
-      closeNew(); load();
+      const result = await createFn({ data: { ...newForm, role: newForm.role as never } });
+      closeNew();
+      setCreatedPassword((result as { id: string; tempPassword: string }).tempPassword);
+      load();
     } catch (err) { toast.error((err as Error).message); }
     finally { setCreating(false); }
   };
@@ -651,6 +653,45 @@ function UsuariosPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── Dialog: Senha temporária do utilizador criado ──────────────── */}
+      <Dialog open={!!createdPassword} onOpenChange={(open) => { if (!open) setCreatedPassword(null); }}>
+        <DialogContent className="w-[95vw] max-w-sm sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="size-4 text-primary" /> Utilizador criado
+            </DialogTitle>
+            <DialogDescription>
+              Guarde a senha temporária abaixo. Ela não poderá ser recuperada depois.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Senha temporária</Label>
+              <div className="flex gap-2">
+                <Input readOnly value={createdPassword ?? ""} className="font-mono text-sm" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdPassword ?? "");
+                    toast.success("Copiado!");
+                  }}
+                >
+                  <Copy className="size-4" />
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O utilizador deverá alterar a senha no primeiro acesso via painel de perfil.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCreatedPassword(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog: Alterar senha ────────────────────────────────────────── */}
       <Dialog open={!!pwdUser} onOpenChange={(open) => { if (!open) closePwd(); }}>

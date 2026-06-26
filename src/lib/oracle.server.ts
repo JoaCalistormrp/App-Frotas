@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // ── Thick mode init (runs once per process) ────────────────────────────────
 // Thick mode supports all Oracle password verifiers (including 0x939 / 11g).
@@ -37,8 +38,17 @@ export const queryOracleFinancial = createServerFn({ method: "POST" })
     if (!documento?.trim() || !ap?.trim()) throw new Error("documento e ap são obrigatórios");
     return { documento: documento.trim(), ap: ap.trim() };
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { documento, ap } = data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: access } = await (supabaseAdmin as any)
+      .from("user_module_access")
+      .select("module_slug")
+      .eq("user_id", context.userId)
+      .eq("module_slug", "financeiro")
+      .maybeSingle();
+    if (!access) throw new Error("Acesso não autorizado ao módulo financeiro.");
 
     // Dynamic import so CF Workers fail gracefully (oracledb is Node.js-only)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,10 +65,16 @@ export const queryOracleFinancial = createServerFn({ method: "POST" })
 
     let conn: any;
     try {
+      const oracleUser = process.env.ORACLE_DB_USER;
+      const oraclePass = process.env.ORACLE_DB_PASSWORD;
+      const oracleConnStr = process.env.ORACLE_DB_HOST;
+      if (!oracleUser || !oraclePass || !oracleConnStr) {
+        throw new Error("Credenciais Oracle não configuradas no servidor. Contacte o administrador.");
+      }
       conn = await oracledb.getConnection({
-        user:           process.env.ORACLE_DB_USER     ?? "CONSTREV",
-        password:       process.env.ORACLE_DB_PASSWORD ?? "REDACTED",
-        connectString:  process.env.ORACLE_DB_HOST     ?? "dbconnect.megaerp.online:4221/xepdb1",
+        user:           oracleUser,
+        password:       oraclePass,
+        connectString:  oracleConnStr,
         connectTimeout: 15,
       });
     } catch (connErr: unknown) {

@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: cpfToEmail(cleanCpf), password,
       options: { data: { full_name: fullName, cpf: cleanCpf, cnh: cleanCnh }, emailRedirectTo: `${window.location.origin}/` },
     });
-    if (error) return { error: error.message };
+    if (error) return { error: sanitizeAuthError(error.message) };
     if (data.user) {
       await supabase.from("profiles").update({ full_name: fullName, cpf: cleanCpf, cnh: cleanCnh }).eq("id", data.user.id);
     }
@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isViewer = roles.includes("viewer");
   const isMechanic = roles.includes("mechanic");
-  const isDriver = !!user && !isAdmin && !isMaster && !isViewer && !isMechanic;
+  const isDriver = roles.includes("driver");
   return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
 }
 
