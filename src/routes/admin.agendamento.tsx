@@ -210,13 +210,13 @@ function AgendamentoPage() {
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <CalendarDays className="size-5 text-primary" />
           <h1 className="text-xl font-semibold">Agendamento de Veículos</h1>
         </div>
         {canWrite && (
-          <Button size="sm" onClick={() => openCreate()}>
+          <Button size="sm" onClick={() => openCreate()} className="w-full sm:w-auto">
             <Plus className="size-4 mr-1.5" /> Novo Agendamento
           </Button>
         )}
@@ -251,7 +251,7 @@ function AgendamentoPage() {
         <div className="grid grid-cols-7 divide-x divide-y border-t">
           {/* Leading blanks */}
           {Array.from({ length: leadingBlanks }).map((_, i) => (
-            <div key={`blank-${i}`} className="min-h-[90px] bg-muted/20" />
+            <div key={`blank-${i}`} className="min-h-[60px] sm:min-h-[90px] bg-muted/20" />
           ))}
 
           {days.map((day) => {
@@ -261,7 +261,7 @@ function AgendamentoPage() {
             return (
               <div
                 key={toIsoDate(day)}
-                className={`min-h-[90px] p-1.5 flex flex-col gap-1 cursor-pointer transition-colors hover:bg-accent/30 ${todayClass} ${!isCurrentMonth ? "opacity-40" : ""}`}
+                className={`min-h-[60px] sm:min-h-[90px] p-1 sm:p-1.5 flex flex-col gap-1 cursor-pointer transition-colors hover:bg-accent/30 ${todayClass} ${!isCurrentMonth ? "opacity-40" : ""}`}
                 onClick={() => setSheetDay(day)}
               >
                 <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? "bg-primary text-primary-foreground" : "text-foreground"}`}>

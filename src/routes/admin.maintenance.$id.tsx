@@ -396,7 +396,7 @@ function OrderForm() {
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link to="/admin/maintenance"><Button size="icon" variant="ghost"><ArrowLeft className="size-4" /></Button></Link>
           <div>
@@ -404,7 +404,7 @@ function OrderForm() {
             <p className="text-sm text-muted-foreground">SMI = manutenção interna • SMV = manutenção externa</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {!isNew && <Button variant="outline" onClick={exportPdf}><FileDown className="size-4" />PDF</Button>}
           {!isNew && isMaster && order.status === "aguardando_aprovacao" && (
             <div className="flex flex-wrap gap-2 items-end">
@@ -431,7 +431,7 @@ function OrderForm() {
       {!isNew && <AttachmentsPanel photos={photos} onUpload={uploadBudget} busy={uploadingBudget} />}
 
       <fieldset disabled={isApprovalLocked} className={isApprovalLocked ? "space-y-4 opacity-70" : "space-y-4"}>
-        <Card className="p-5 grid grid-cols-2 md:grid-cols-3 gap-3">
+        <Card className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <div><Label className="text-xs">Tipo *</Label>
             <select value={order.order_type} onChange={(e) => setOrder({ ...order, order_type: e.target.value as "SMI" | "SMV" })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"><option value="SMI">SMI — Interna</option><option value="SMV">SMV — Externa</option></select>
           </div>

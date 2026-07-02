@@ -244,7 +244,7 @@ function ModulesSection({
                 </p>
 
                 {/* Screens without subscreens — 2-col grid */}
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                   {mod.screens.filter((s) => !s.subscreens).map((screen) => {
                     const checked = selected.includes(screen.slug);
                     return (
@@ -295,7 +295,7 @@ function ModulesSection({
                           <p className="text-[10px] text-muted-foreground mb-1.5">
                             Tipos de checklist <span className="italic">(sem seleção = todos)</span>
                           </p>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                             {screen.subscreens!.map((sub) => {
                               const subChecked = selected.includes(sub.slug);
                               return (
@@ -445,7 +445,7 @@ function UsuariosPage() {
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><UserCog className="size-6" />Usuários & Acessos</h1>
           <p className="text-sm text-muted-foreground">Gestão de utilizadores, perfis e módulos de acesso do ERP.</p>
@@ -555,7 +555,7 @@ function UsuariosPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitNew} className="space-y-4 py-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label>Nome completo</Label>
                 <Input value={newForm.full_name} onChange={(e) => setNewForm({ ...newForm, full_name: e.target.value })} placeholder="João da Silva" required />

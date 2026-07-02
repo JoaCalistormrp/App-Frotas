@@ -488,7 +488,7 @@ function LicitacaoDetail({ item, users, isAdmin, onClose, onSaved, onDeleted }: 
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <Detail label="Nº Processo"    value={item.numero_processo} />
               <Detail label="Órgão Licitante" value={item.orgao_licitante} />
               <Detail label="Modalidade"     value={MODALIDADES.find((m) => m.value === item.modalidade)?.label ?? null} />
