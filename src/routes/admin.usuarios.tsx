@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Users, Plus, ShieldCheck, Eye, Wrench, Truck, TrendingDown,
   KeyRound, Trash2, Loader2, SlidersHorizontal, X, UserCog, RefreshCw, Gavel,
-  Monitor, CheckCircle2, XCircle, Copy,
+  Monitor, CheckCircle2, XCircle, Copy, CalendarDays,
 } from "lucide-react";
 import {
   listStaff, createStaffUser, updateStaffUser, deleteStaffUser, resetStaffPassword,
@@ -27,8 +27,16 @@ export const Route = createFileRoute("/admin/usuarios")({ component: UsuariosPag
 
 // ── Módulos do ERP ─────────────────────────────────────────────────────────────
 type ScreenItem = { slug: string; label: string; subscreens?: { slug: string; label: string }[] };
+type PermissionLevel = { slug: string; label: string };
 
-const MODULES_CONFIG = [
+const MODULES_CONFIG: Array<{
+  slug: string;
+  label: string;
+  icon: React.ElementType;
+  description: string;
+  screens: ScreenItem[];
+  permissionLevels?: PermissionLevel[];
+}> = [
   {
     slug: "frotas",
     label: "Frotas",
@@ -54,6 +62,17 @@ const MODULES_CONFIG = [
       { slug: "frotas.motoristas",    label: "Motoristas" },
       { slug: "frotas.lixeira",       label: "Lixeira" },
     ] as ScreenItem[],
+  },
+  {
+    slug: "frotas.agendamento",
+    label: "Agendamento de Veículos",
+    icon: CalendarDays,
+    description: "Reservas e agendamentos de serviço por veículo",
+    screens: [] as ScreenItem[],
+    permissionLevels: [
+      { slug: "frotas.agendamento",          label: "Incluir / Visualizar" },
+      { slug: "frotas.agendamento.readonly", label: "Somente Visualizar"  },
+    ],
   },
   {
     slug: "financeiro",
@@ -125,17 +144,32 @@ function ModulesSection({
   return (
     <div className="space-y-2">
       {MODULES_CONFIG.map((mod) => {
+        const hasPermLevels = !!mod.permissionLevels?.length;
+        const permLevelSlugs = mod.permissionLevels?.map((l) => l.slug) ?? [];
+        const activePermSlug = permLevelSlugs.find((s) => selected.includes(s)) ?? null;
+
         const hasScreens = mod.screens.length > 0;
         const screenSlugs = mod.screens.map((s) => s.slug);
         const selectedScreens = screenSlugs.filter((s) => selected.includes(s));
-        const isActive = hasScreens ? selectedScreens.length > 0 : selected.includes(mod.slug);
-        const isPartial = hasScreens && selectedScreens.length > 0 && selectedScreens.length < screenSlugs.length;
+
+        const isActive = hasPermLevels
+          ? !!activePermSlug
+          : hasScreens ? selectedScreens.length > 0 : selected.includes(mod.slug);
+
+        const isPartial = !hasPermLevels && hasScreens &&
+          selectedScreens.length > 0 && selectedScreens.length < screenSlugs.length;
 
         const allSubSlugs = mod.screens.flatMap((s) => s.subscreens?.map((ss) => ss.slug) ?? []);
         const allSlugs = [...screenSlugs, ...allSubSlugs];
 
         const toggleModule = () => {
-          if (!hasScreens) {
+          if (hasPermLevels) {
+            if (activePermSlug) {
+              onChange(selected.filter((s) => !permLevelSlugs.includes(s)));
+            } else {
+              onChange([...selected.filter((s) => !permLevelSlugs.includes(s)), permLevelSlugs[0]]);
+            }
+          } else if (!hasScreens) {
             onChange(toggleArr(selected, mod.slug));
           } else if (isActive) {
             onChange(selected.filter((s) => !allSlugs.includes(s)));
@@ -145,6 +179,8 @@ function ModulesSection({
         };
 
         const toggleScreen = (slug: string) => onChange(toggleArr(selected, slug));
+        const setPermLevel = (slug: string) =>
+          onChange([...selected.filter((s) => !permLevelSlugs.includes(s)), slug]);
 
         return (
           <div
@@ -174,6 +210,31 @@ function ModulesSection({
                 {isActive && !isPartial && <X className="size-3 text-primary-foreground" strokeWidth={3} />}
               </div>
             </button>
+
+            {/* Permission levels — shown when module is active and uses permissionLevels */}
+            {hasPermLevels && isActive && (
+              <div className="border-t border-primary/20 px-3 pt-2.5 pb-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Nível de acesso
+                </p>
+                <div className="flex flex-col gap-2">
+                  {mod.permissionLevels!.map((level) => (
+                    <label key={level.slug} className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name={`perm-${mod.slug}`}
+                        checked={activePermSlug === level.slug}
+                        onChange={() => setPermLevel(level.slug)}
+                        className="h-3.5 w-3.5 accent-primary"
+                      />
+                      <span className={`text-xs ${activePermSlug === level.slug ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                        {level.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Screen list — shown when module is active and has screens */}
             {hasScreens && isActive && (

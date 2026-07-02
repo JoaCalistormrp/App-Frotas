@@ -5,6 +5,14 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const RoleSchema = z.enum(["admin", "viewer", "mechanic", "master", "driver"]);
 
+const KNOWN_MODULE_SLUGS = [
+  "financeiro",
+  "frotas.agendamento",
+  "frotas.agendamento.readonly",
+  "licitacao",
+] as const;
+const ModuleSlugSchema = z.enum(KNOWN_MODULE_SLUGS);
+
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -103,7 +111,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
       full_name: z.string().min(1).max(120),
       role: RoleSchema,
       driver_active: z.boolean(),
-      modules: z.array(z.string()),
+      modules: z.array(ModuleSlugSchema),
     }).parse(input),
   )
   .handler(async ({ context, data }) => {
@@ -162,7 +170,7 @@ export const updateStaffUser = createServerFn({ method: "POST" })
       cpf: cpfSchema,
       role: RoleSchema,
       driver_active: z.boolean(),
-      modules: z.array(z.string()),
+      modules: z.array(ModuleSlugSchema),
     }).parse(input),
   )
   .handler(async ({ context, data }) => {
@@ -240,23 +248,14 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
   });
 
 // Public — no auth required. Used by the login screen to resolve CPF → real email.
+// Uses the Supabase RPC `get_email_by_cpf` (SECURITY DEFINER) to avoid loading all profiles in memory.
 export const findEmailByCpf = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ cpf: z.string().min(1) }).parse(input))
   .handler(async ({ data }) => {
     const digits = data.cpf.replace(/\D/g, "");
     if (digits.length < 11) return { email: null };
 
-    // Load all profiles with CPFs and match by normalized digits (handles any formatting)
-    const { data: profiles } = await supabaseAdmin
-      .from("profiles")
-      .select("id, cpf")
-      .not("cpf", "is", null);
-
-    const match = (profiles ?? []).find(
-      (p) => p.cpf && (p.cpf as string).replace(/\D/g, "") === digits
-    );
-    if (!match) return { email: null };
-
-    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(match.id as string);
-    return { email: authData.user?.email ?? null };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: email } = await (supabaseAdmin as any).rpc("get_email_by_cpf", { cpf_input: digits });
+    return { email: (email as string | null) ?? null };
   });

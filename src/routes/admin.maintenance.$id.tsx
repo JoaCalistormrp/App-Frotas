@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { approveMaintenanceOrder, denyMaintenanceOrder, softDeleteMaintenanceOrder } from "@/lib/maintenance.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,25 +37,31 @@ type Order = {
   approved_at?: string | null; approved_by?: string | null; denial_reason?: string | null;
 };
 
-// --- FUNÇÃO PURA: Carrega Anexos ---
+// --- FUNÇÃO PURA: Carrega Anexos (usa createSignedUrls em batch para evitar N+1) ---
 async function fetchAllPhotos(orderId: string, checklistId: string | null) {
   let list: any[] = [];
+
   const { data: pData } = await supabase.from("maintenance_photos").select("id, category, storage_path").eq("order_id", orderId);
   if (pData && pData.length > 0) {
-    const mapped = await Promise.all(pData.map(async (r) => {
-      const { data } = await supabase.storage.from("maintenance-photos").createSignedUrl(r.storage_path, 3600);
-      return { id: r.id, category: r.category, storage_path: r.storage_path, url: data?.signedUrl ?? "" };
-    }));
-    list = [...list, ...mapped];
+    const { data: signedUrls } = await supabase.storage
+      .from("maintenance-photos")
+      .createSignedUrls(pData.map((r) => r.storage_path), 3600);
+    const urlMap = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl ?? ""]));
+    list = [...list, ...pData.map((r) => ({
+      id: r.id, category: r.category, storage_path: r.storage_path, url: urlMap.get(r.storage_path) ?? "",
+    }))];
   }
+
   if (checklistId) {
     const { data: cData } = await supabase.from("checklist_responses").select("id, photo_url, checklist_items(name)").eq("checklist_id", checklistId).not("photo_url", "is", null);
     if (cData && cData.length > 0) {
-      const mapped = await Promise.all(cData.map(async (r: any) => {
-        const { data } = await supabase.storage.from("checklist-photos").createSignedUrl(r.photo_url, 3600);
-        return { id: r.id, category: `Falha: ${r.checklist_items?.name ?? "Item"}`, storage_path: r.photo_url, url: data?.signedUrl ?? "" };
-      }));
-      list = [...list, ...mapped];
+      const { data: signedUrls } = await supabase.storage
+        .from("checklist-photos")
+        .createSignedUrls(cData.map((r: any) => r.photo_url), 3600);
+      const urlMap = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl ?? ""]));
+      list = [...list, ...(cData as any[]).map((r) => ({
+        id: r.id, category: `Falha: ${r.checklist_items?.name ?? "Item"}`, storage_path: r.photo_url, url: urlMap.get(r.photo_url) ?? "",
+      }))];
     }
   }
   return list;
@@ -257,64 +264,37 @@ function OrderForm() {
   };
 
   const approveOrder = async () => {
-    if (!user || !isMaster || isNew || order.status !== "aguardando_aprovacao") return;
+    if (!isMaster || isNew || order.status !== "aguardando_aprovacao") return;
     if (!confirm("Aprovar esta SMV/SMI e liberar a ordem para atualização?")) return;
     setApprovalBusy(true);
     try {
-      const approvedAt = new Date().toISOString();
-      const { error } = await supabase.from("maintenance_orders").update({ status: "aprovada", approved_at: approvedAt, approved_by: user.id, denial_reason: null } as never).eq("id", id);
-      if (error) throw new Error(error.message);
-      await supabase.from("maintenance_evolutions").insert({ order_id: id, user_id: user.id, status: "aprovada", observation: "SMV/SMI aprovada pelo Master." });
-      setOrder({ ...order, status: "aprovada", approved_at: approvedAt, approved_by: user.id, denial_reason: null });
+      const result = await approveMaintenanceOrder({ data: { order_id: id } });
+      setOrder({ ...order, status: "aprovada", approved_at: result.approved_at, approved_by: user?.id ?? null, denial_reason: null });
       setSavedStatus("aprovada");
       toast.success("Ordem aprovada com sucesso");
-    } catch (e) { toast.error((e as Error).message); } 
+    } catch (e) { toast.error((e as Error).message); }
     finally { setApprovalBusy(false); }
   };
 
   const confirmDeny = async () => {
-    if (!user || !isMaster || isNew || order.status !== "aguardando_aprovacao") return;
+    if (!isMaster || isNew || order.status !== "aguardando_aprovacao") return;
     const reason = denyReasonTemp.trim();
     if (!reason) { toast.error("Insira o motivo da negação."); return; }
     setDenyBusy(true);
     try {
-      const { error } = await supabase.from("maintenance_orders").update({ status: "negada", denial_reason: reason } as never).eq("id", id);
-      if (error) throw new Error(error.message);
-      await supabase.from("maintenance_evolutions").insert({ order_id: id, user_id: user.id, status: "negada", observation: `SMV/SMI negada pelo Master. Motivo: ${reason}` });
+      await denyMaintenanceOrder({ data: { order_id: id, reason } });
       setOrder({ ...order, status: "negada", denial_reason: reason });
       setSavedStatus("negada");
       setShowDenyModal(false);
       toast.success("OS negada com sucesso");
-    } catch (e) { toast.error((e as Error).message); } 
+    } catch (e) { toast.error((e as Error).message); }
     finally { setDenyBusy(false); }
   };
 
   const confirmDelete = async (reason: string) => {
     setDeleteBusy(true);
     try {
-      // OS finalizada: remover vínculos financeiros antes de excluir
-      if (savedStatus === "finalizada") {
-        const { error: e1 } = await (supabase as any)
-          .from("maintenance_financial_links")
-          .delete()
-          .eq("maintenance_order_id", id);
-        if (e1) throw new Error(e1.message);
-
-        const { error: e2 } = await (supabase as any)
-          .from("maintenance_os_link_finalized")
-          .delete()
-          .eq("maintenance_order_id", id);
-        if (e2) throw new Error(e2.message);
-      }
-
-      const { error } = await supabase.from("maintenance_orders").update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id ?? null,
-        delete_reason: reason.trim()
-      } as never).eq("id", id);
-
-      if (error) throw new Error(error.message);
-
+      await softDeleteMaintenanceOrder({ data: { order_id: id, reason: reason.trim() } });
       toast.success("OS movida para a Lixeira");
       nav({ to: "/admin/maintenance" });
     } catch (e) {
@@ -369,7 +349,7 @@ function OrderForm() {
         if (order.status === "aguardando_aprovacao" && savedStatus !== "aguardando_aprovacao") {
           supabase.functions.invoke("notify-master", {
             body: { order_id: id, order_number: orderNumber ?? order.order_number },
-          }).catch(console.warn);
+          }).catch(() => toast.warning("OS salva, mas a notificação ao Master falhou. Avise-o manualmente."));
         }
         setSavedStatus(order.status);
         toast.success("Atualizada");
@@ -490,37 +470,25 @@ function OrderForm() {
           <div className="md:col-span-3"><Label className="text-xs">Descrição da solução</Label><Textarea rows={3} value={order.solution_description ?? ""} onChange={(e) => setOrder({ ...order, solution_description: e.target.value })} /></div>
           <div className="md:col-span-3">
             <Label className="text-xs">Itens trocados *</Label>
-            <div className="flex gap-2">
-              <div
-                className="flex-1 min-h-[72px] border border-border rounded-md bg-input p-2 flex flex-wrap gap-1.5 cursor-text"
-                onClick={() => itemInputRef.current?.focus()}
-              >
-                {itemsList.map((item, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 bg-primary/15 text-primary text-xs font-semibold px-2 py-1 rounded">
-                    {item}
-                    <button type="button" onClick={() => removeItem(i)} className="hover:text-destructive transition-colors"><XIcon className="size-3" /></button>
-                  </span>
-                ))}
-                <input
-                  ref={itemInputRef}
-                  value={itemsInput}
-                  onChange={(e) => setItemsInput(e.target.value)}
-                  onKeyDown={handleItemKeyDown}
-                  enterKeyHint="done"
-                  className="flex-1 min-w-[120px] outline-none bg-transparent text-sm py-0.5"
-                  placeholder={itemsList.length === 0 ? "Adicione um item…" : ""}
-                />
-              </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className="self-start mt-0 shrink-0 size-10"
-                onClick={addCurrentItem}
-                disabled={!itemsInput.trim()}
-              >
-                <Plus className="size-4" />
-              </Button>
+            <div
+              className="min-h-[72px] border border-border rounded-md bg-input p-2 flex flex-wrap gap-1.5 cursor-text"
+              onClick={() => itemInputRef.current?.focus()}
+            >
+              {itemsList.map((item, i) => (
+                <span key={i} className="inline-flex items-center gap-1 bg-primary/15 text-primary text-xs font-semibold px-2 py-1 rounded">
+                  {item}
+                  <button type="button" onClick={() => removeItem(i)} className="hover:text-destructive transition-colors"><XIcon className="size-3" /></button>
+                </span>
+              ))}
+              <input
+                ref={itemInputRef}
+                value={itemsInput}
+                onChange={(e) => setItemsInput(e.target.value)}
+                onKeyDown={handleItemKeyDown}
+                enterKeyHint="done"
+                className="flex-1 min-w-[120px] outline-none bg-transparent text-sm py-0.5"
+                placeholder={itemsList.length === 0 ? "Adicione um item…" : ""}
+              />
             </div>
           </div>
           <div className="md:col-span-3"><Label className="text-xs">Observações</Label><Textarea rows={3} value={order.observations} onChange={(e) => setOrder({ ...order, observations: e.target.value })} /></div>

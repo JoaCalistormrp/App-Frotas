@@ -25,6 +25,7 @@ import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance
 import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
 import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
 import { Route as AdminChecklistRouteImport } from './routes/admin.checklist'
+import { Route as AdminAgendamentoRouteImport } from './routes/admin.agendamento'
 import { Route as AdminMaintenanceTrashRouteImport } from './routes/admin.maintenance.trash'
 import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
 
@@ -108,6 +109,11 @@ const AdminChecklistRoute = AdminChecklistRouteImport.update({
   path: '/checklist',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAgendamentoRoute = AdminAgendamentoRouteImport.update({
+  id: '/agendamento',
+  path: '/agendamento',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMaintenanceTrashRoute = AdminMaintenanceTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/licitacao': typeof LicitacaoRoute
   '/mechanic': typeof MechanicRoute
   '/motorista': typeof MotoristaRoute
+  '/admin/agendamento': typeof AdminAgendamentoRoute
   '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/licitacao': typeof LicitacaoRoute
   '/mechanic': typeof MechanicRoute
   '/motorista': typeof MotoristaRoute
+  '/admin/agendamento': typeof AdminAgendamentoRoute
   '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/licitacao': typeof LicitacaoRoute
   '/mechanic': typeof MechanicRoute
   '/motorista': typeof MotoristaRoute
+  '/admin/agendamento': typeof AdminAgendamentoRoute
   '/admin/checklist': typeof AdminChecklistRoute
   '/admin/checklists': typeof AdminChecklistsRoute
   '/admin/drivers': typeof AdminDriversRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/licitacao'
     | '/mechanic'
     | '/motorista'
+    | '/admin/agendamento'
     | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/licitacao'
     | '/mechanic'
     | '/motorista'
+    | '/admin/agendamento'
     | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/licitacao'
     | '/mechanic'
     | '/motorista'
+    | '/admin/agendamento'
     | '/admin/checklist'
     | '/admin/checklists'
     | '/admin/drivers'
@@ -366,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChecklistRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/agendamento': {
+      id: '/admin/agendamento'
+      path: '/agendamento'
+      fullPath: '/admin/agendamento'
+      preLoaderRoute: typeof AdminAgendamentoRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/maintenance/trash': {
       id: '/admin/maintenance/trash'
       path: '/trash'
@@ -397,6 +416,7 @@ const AdminMaintenanceRouteWithChildren =
   AdminMaintenanceRoute._addFileChildren(AdminMaintenanceRouteChildren)
 
 interface AdminRouteChildren {
+  AdminAgendamentoRoute: typeof AdminAgendamentoRoute
   AdminChecklistRoute: typeof AdminChecklistRoute
   AdminChecklistsRoute: typeof AdminChecklistsRoute
   AdminDriversRoute: typeof AdminDriversRoute
@@ -408,6 +428,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAgendamentoRoute: AdminAgendamentoRoute,
   AdminChecklistRoute: AdminChecklistRoute,
   AdminChecklistsRoute: AdminChecklistsRoute,
   AdminDriversRoute: AdminDriversRoute,

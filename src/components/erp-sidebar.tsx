@@ -2,7 +2,7 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Home, Truck, TrendingDown, LayoutDashboard, ClipboardList, FilePlus,
-  Wrench, Car, Users, Trash2, LogOut, Building2, ShieldCheck, ChevronDown, Gavel,
+  Wrench, Car, Users, Trash2, LogOut, Building2, ShieldCheck, ChevronDown, Gavel, CalendarDays,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -35,6 +35,7 @@ const NAV: NavModule[] = [
       { title: "Veículos",        url: "/admin/vehicles",          icon: Car,             exact: false, slug: "frotas.veiculos"      },
       { title: "Motoristas",      url: "/admin/drivers",           icon: Users,           exact: false, slug: "frotas.motoristas"    },
       { title: "Lixeira",         url: "/admin/maintenance/trash", icon: Trash2,          exact: false, slug: "frotas.lixeira"       },
+      { title: "Agendamento",     url: "/admin/agendamento",       icon: CalendarDays,    exact: false, slug: "frotas.agendamento"   },
     ],
   },
   {
@@ -68,8 +69,12 @@ export function ERPSidebar() {
     return modules.includes(mod.slug);
   };
 
-  const canSeePage = (page: NavPage) =>
-    modules.includes(page.slug) || modules.includes("frotas");
+  const canSeePage = (page: NavPage) => {
+    if (modules.includes("frotas")) return true;
+    if (modules.includes(page.slug)) return true;
+    // páginas com sub-permissões (ex: frotas.agendamento.readonly também dá acesso à aba)
+    return modules.some((m) => m.startsWith(page.slug + "."));
+  };
 
   const findActiveModule = () =>
     NAV.find((m) => m.pages.length > 0 && m.pages.some((p) => isActive(p.url, p.exact)))?.url ?? null;

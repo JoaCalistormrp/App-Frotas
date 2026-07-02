@@ -1,5 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
+import { createLicitacao, updateLicitacao, moveLicitacaoStatus, deleteLicitacao } from "@/lib/licitacao.functions";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
@@ -359,51 +360,47 @@ function LicitacaoDetail({ item, users, isAdmin, onClose, onSaved, onDeleted }: 
 
   const save = async () => {
     setBusy(true);
-    const { data, error } = await supabase
-      .from("licitacoes" as any)
-      .update({
-        titulo: form.titulo,
-        numero_processo: form.numero_processo || null,
-        orgao_licitante: form.orgao_licitante || null,
-        valor_estimado: form.valor_estimado ?? null,
-        modalidade: form.modalidade || null,
-        responsavel_id: form.responsavel_id || null,
-        data_abertura: form.data_abertura || null,
-        data_vencimento: form.data_vencimento || null,
-        observacoes: form.observacoes || null,
-        status: form.status,
-      })
-      .eq("id", item.id)
-      .select("*")
-      .single();
-    setBusy(false);
-    if (error) { toast.error("Erro ao guardar"); return; }
-    toast.success("Licitação atualizada");
-    setEditing(false);
-    onSaved(data as any);
+    try {
+      const updated = await updateLicitacao({
+        data: {
+          id: item.id,
+          titulo: form.titulo,
+          numero_processo: form.numero_processo || null,
+          orgao_licitante: form.orgao_licitante || null,
+          valor_estimado: form.valor_estimado ?? null,
+          modalidade: (form.modalidade || null) as any,
+          responsavel_id: form.responsavel_id || null,
+          data_abertura: form.data_abertura || null,
+          data_vencimento: form.data_vencimento || null,
+          observacoes: form.observacoes || null,
+          status: form.status,
+        },
+      });
+      toast.success("Licitação atualizada");
+      setEditing(false);
+      onSaved(updated as any);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
   };
 
   const moveStatus = async (status: LicitacaoStatus) => {
     setBusy(true);
-    const { data, error } = await supabase
-      .from("licitacoes" as any)
-      .update({ status })
-      .eq("id", item.id)
-      .select("*")
-      .single();
-    setBusy(false);
-    if (error) { toast.error("Erro ao mover"); return; }
-    onSaved(data as any);
+    try {
+      const updated = await moveLicitacaoStatus({ data: { id: item.id, status } });
+      onSaved(updated as any);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
   };
 
   const del = async () => {
     if (!confirm("Eliminar esta licitação?")) return;
     setBusy(true);
-    const { error } = await supabase.from("licitacoes" as any).delete().eq("id", item.id);
-    setBusy(false);
-    if (error) { toast.error("Erro ao eliminar"); return; }
-    toast.success("Licitação eliminada");
-    onDeleted();
+    try {
+      await deleteLicitacao({ data: { id: item.id } });
+      toast.success("Licitação eliminada");
+      onDeleted();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
   };
 
   const days = item.status === "ganha" ? daysUntil(item.data_vencimento) : null;
@@ -548,7 +545,6 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
 function LicitacaoForm({ users, onClose, onSaved }: {
   users: UserOption[]; onClose: () => void; onSaved: (l: Licitacao) => void;
 }) {
-  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     titulo: "", numero_processo: "", orgao_licitante: "", valor_estimado: "",
@@ -571,27 +567,25 @@ function LicitacaoForm({ users, onClose, onSaved }: {
     const err = validate();
     if (err) return toast.error(err);
     setBusy(true);
-    const { data, error } = await supabase
-      .from("licitacoes" as any)
-      .insert({
-        titulo: form.titulo.trim(),
-        numero_processo: form.numero_processo || null,
-        orgao_licitante: form.orgao_licitante || null,
-        valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
-        modalidade: form.modalidade || null,
-        responsavel_id: form.responsavel_id || null,
-        data_abertura: form.data_abertura || null,
-        data_vencimento: form.data_vencimento || null,
-        observacoes: form.observacoes || null,
-        status: form.status,
-        created_by: user?.id ?? null,
-      })
-      .select("*")
-      .single();
-    setBusy(false);
-    if (error) { toast.error("Erro ao criar licitação"); return; }
-    toast.success("Licitação criada");
-    onSaved(data as any);
+    try {
+      const created = await createLicitacao({
+        data: {
+          titulo: form.titulo.trim(),
+          numero_processo: form.numero_processo || null,
+          orgao_licitante: form.orgao_licitante || null,
+          valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
+          modalidade: (form.modalidade || null) as any,
+          responsavel_id: form.responsavel_id || null,
+          data_abertura: form.data_abertura || null,
+          data_vencimento: form.data_vencimento || null,
+          observacoes: form.observacoes || null,
+          status: form.status,
+        },
+      });
+      toast.success("Licitação criada");
+      onSaved(created as any);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
   };
 
   return (

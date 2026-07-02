@@ -87,8 +87,12 @@ export const queryOracleFinancial = createServerFn({ method: "POST" })
           "2. Peça ao DBA para regenerar a password do utilizador Oracle.",
         );
       }
-      throw new Error(`Erro de ligação Oracle: ${msg}`);
+      console.error("[oracle] Connection error:", msg);
+      throw new Error("Erro ao conectar ao ERP. Por favor tente novamente ou contacte o suporte.");
     }
+
+    // Enforce a per-call execution timeout (ms) so a slow Oracle query never hangs the request.
+    conn.callTimeout = 30_000;
 
     try {
       const result = await conn.execute(
