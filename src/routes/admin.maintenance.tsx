@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Wrench, Plus, ClipboardList, Clock, CheckCircle2, AlertCircle, FilePlus, Trash2, Search, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ function MaintenancePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("abertos");
+  const [osSearch, setOsSearch] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -65,6 +67,20 @@ function MaintenancePage() {
     return <Outlet />;
   }
 
+  const filteredOrders = osSearch.trim()
+    ? orders.filter((o) => {
+        const q = osSearch.trim().toLowerCase();
+        return (
+          o.order_number.toLowerCase().includes(q) ||
+          (o.vehicles?.plate ?? "").toLowerCase().includes(q) ||
+          (o.vehicles?.model ?? "").toLowerCase().includes(q) ||
+          (o.profiles?.full_name ?? "").toLowerCase().includes(q) ||
+          (o.failure_description ?? "").toLowerCase().includes(q) ||
+          (o.workshop ?? "").toLowerCase().includes(q)
+        );
+      })
+    : orders;
+
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -91,27 +107,47 @@ function MaintenancePage() {
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3 pt-2">
-          <Card className="p-3 flex gap-2 flex-wrap bg-muted/30">
-            <Button size="sm" variant={statusFilter === "abertos" ? "default" : "outline"} onClick={() => setStatusFilter("abertos")}>
-              <AlertCircle className="size-3 mr-1" />Em aberto
-            </Button>
-            {isMaster && (
-              <Button size="sm" variant={statusFilter === "aguardando_aprovacao" ? "default" : "outline"} onClick={() => setStatusFilter("aguardando_aprovacao")} className={statusFilter !== "aguardando_aprovacao" ? "border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10" : "bg-yellow-500 text-white hover:bg-yellow-600"}>
-                <Clock className="size-3 mr-1" />Aguard. aprovação
+          <Card className="p-3 space-y-2 bg-muted/30">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Buscar por placa, nº OS, motorista, oficina…"
+                value={osSearch}
+                onChange={(e) => setOsSearch(e.target.value)}
+                className="h-8 pl-7 text-sm pr-7"
+              />
+              {osSearch && (
+                <button onClick={() => setOsSearch("")} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
+                  <XIcon className="size-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" variant={statusFilter === "abertos" ? "default" : "outline"} onClick={() => setStatusFilter("abertos")}>
+                <AlertCircle className="size-3 mr-1" />Em aberto
               </Button>
-            )}
-            <Button size="sm" variant={statusFilter === "concluidas" ? "default" : "outline"} onClick={() => setStatusFilter("concluidas")}>
-              <CheckCircle2 className="size-3 mr-1" />Concluídas
-            </Button>
-            <Button size="sm" variant={statusFilter === "todos" ? "default" : "outline"} onClick={() => setStatusFilter("todos")}>
-              <ClipboardList className="size-3 mr-1" />Todos
-            </Button>
+              {isMaster && (
+                <Button size="sm" variant={statusFilter === "aguardando_aprovacao" ? "default" : "outline"} onClick={() => setStatusFilter("aguardando_aprovacao")} className={statusFilter !== "aguardando_aprovacao" ? "border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10" : "bg-yellow-500 text-white hover:bg-yellow-600"}>
+                  <Clock className="size-3 mr-1" />Aguard. aprovação
+                </Button>
+              )}
+              <Button size="sm" variant={statusFilter === "concluidas" ? "default" : "outline"} onClick={() => setStatusFilter("concluidas")}>
+                <CheckCircle2 className="size-3 mr-1" />Concluídas
+              </Button>
+              <Button size="sm" variant={statusFilter === "todos" ? "default" : "outline"} onClick={() => setStatusFilter("todos")}>
+                <ClipboardList className="size-3 mr-1" />Todos
+              </Button>
+            </div>
           </Card>
 
           <div className="space-y-2">
             {loading && <Card className="p-6 text-sm text-muted-foreground text-center">Carregando…</Card>}
-            {!loading && orders.length === 0 && <Card className="p-6 text-sm text-muted-foreground text-center">Nenhuma ordem encontrada neste filtro.</Card>}
-            {orders.map((o) => (
+            {!loading && filteredOrders.length === 0 && (
+              <Card className="p-6 text-sm text-muted-foreground text-center">
+                {osSearch ? `Nenhuma OS encontrada para "${osSearch}".` : "Nenhuma ordem encontrada neste filtro."}
+              </Card>
+            )}
+            {filteredOrders.map((o) => (
               <Link key={o.id} to="/admin/maintenance/$id" params={{ id: o.id }} className="block">
                 <Card className="p-4 hover:bg-muted/40 transition cursor-pointer border-l-4" style={{ borderLeftColor: o.status === 'aguardando_aprovacao' ? '#eab308' : o.status === 'solucionado' || o.status === 'finalizada' ? '#22c55e' : '#3b82f6' }}>
                   <div className="flex items-start justify-between gap-2">
@@ -195,6 +231,7 @@ function AdminChecklistsPanel() {
   const [loading, setLoading] = useState(true);
   const [selectedFailure, setSelectedFailure] = useState<SelectedFailure | null>(null);
   const [osMap, setOsMap] = useState<Record<string, { order_number: string; id: string }>>({});
+  const [clSearch, setClSearch] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -244,25 +281,56 @@ function AdminChecklistsPanel() {
 
   useEffect(() => { load(); }, [filter]);
 
+  const filteredRows = clSearch.trim()
+    ? rows.filter((c) => {
+        const q = clSearch.trim().toLowerCase();
+        return (
+          (c.vehicle?.plate ?? "").toLowerCase().includes(q) ||
+          (c.vehicle?.model ?? "").toLowerCase().includes(q) ||
+          (c.driver_name ?? "").toLowerCase().includes(q)
+        );
+      })
+    : rows;
+
   return (
     <div className="space-y-3">
-      <Card className="p-3 flex gap-2 flex-wrap bg-muted/30">
-        <Button size="sm" variant={filter === "falhas" ? "default" : "outline"} onClick={() => setFilter("falhas")}>
-          <AlertCircle className="size-3 mr-1" />Veículos com falhas
-        </Button>
-        <Button size="sm" variant={filter === "ok" ? "default" : "outline"} onClick={() => setFilter("ok")}>
-          <CheckCircle2 className="size-3 mr-1" />OS ok
-        </Button>
-        <Button size="sm" variant={filter === "todos" ? "default" : "outline"} onClick={() => setFilter("todos")}>
-          <ClipboardList className="size-3 mr-1" />Todos
-        </Button>
+      <Card className="p-3 space-y-2 bg-muted/30">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Buscar por placa, modelo ou motorista…"
+            value={clSearch}
+            onChange={(e) => setClSearch(e.target.value)}
+            className="h-8 pl-7 text-sm pr-7"
+          />
+          {clSearch && (
+            <button onClick={() => setClSearch("")} className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground">
+              <XIcon className="size-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant={filter === "falhas" ? "default" : "outline"} onClick={() => setFilter("falhas")}>
+            <AlertCircle className="size-3 mr-1" />Veículos com falhas
+          </Button>
+          <Button size="sm" variant={filter === "ok" ? "default" : "outline"} onClick={() => setFilter("ok")}>
+            <CheckCircle2 className="size-3 mr-1" />OS ok
+          </Button>
+          <Button size="sm" variant={filter === "todos" ? "default" : "outline"} onClick={() => setFilter("todos")}>
+            <ClipboardList className="size-3 mr-1" />Todos
+          </Button>
+        </div>
       </Card>
 
       {loading && <Card className="p-6 text-sm text-muted-foreground text-center">Carregando…</Card>}
-      {!loading && rows.length === 0 && <Card className="p-6 text-sm text-muted-foreground text-center">Nenhum checklist encontrado.</Card>}
-      
+      {!loading && filteredRows.length === 0 && (
+        <Card className="p-6 text-sm text-muted-foreground text-center">
+          {clSearch ? `Nenhum checklist encontrado para "${clSearch}".` : "Nenhum checklist encontrado."}
+        </Card>
+      )}
+
       <div className="space-y-2">
-        {rows.map((c) => (
+        {filteredRows.map((c) => (
           <Card key={c.id} className={`p-4 transition ${c.has_issues ? "border-l-4 border-l-destructive" : "border-l-4 border-l-emerald-500"}`}>
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0 flex-1">

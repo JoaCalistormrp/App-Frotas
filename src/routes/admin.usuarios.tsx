@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Users, Plus, ShieldCheck, Eye, Wrench, Truck, TrendingDown,
   KeyRound, Trash2, Loader2, SlidersHorizontal, X, UserCog, RefreshCw, Gavel,
-  Monitor, CheckCircle2, XCircle, Copy, CalendarDays,
+  Monitor, CheckCircle2, XCircle, Copy, CalendarDays, Smartphone,
 } from "lucide-react";
 import {
   listStaff, createStaffUser, updateStaffUser, deleteStaffUser, resetStaffPassword,
@@ -115,14 +115,14 @@ const ROLE_STYLE: Record<string, string> = {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type StaffUser = {
-  id: string; email: string; full_name: string | null; cpf: string | null;
+  id: string; email: string; full_name: string | null; cpf: string | null; phone: string | null;
   roles: string[]; driver_active: boolean; modules: string[];
 };
 
-type NewForm = { full_name: string; email: string; cpf: string; role: string; driver_active: boolean; modules: string[] };
-type EditForm = { full_name: string; cpf: string; role: string; driver_active: boolean; modules: string[] };
+type NewForm = { full_name: string; email: string; cpf: string; phone: string; role: string; driver_active: boolean; modules: string[] };
+type EditForm = { full_name: string; cpf: string; phone: string; role: string; driver_active: boolean; modules: string[] };
 
-const EMPTY_NEW: NewForm = { full_name: "", email: "", cpf: "", role: "viewer", driver_active: false, modules: [] };
+const EMPTY_NEW: NewForm = { full_name: "", email: "", cpf: "", phone: "", role: "viewer", driver_active: false, modules: [] };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function toggleArr(arr: string[], val: string) {
@@ -405,7 +405,7 @@ function UsuariosPage() {
   // ── Edit user ─────────────────────────────────────────────────────────────
   const openEdit = (s: StaffUser) => {
     setEditUser(s);
-    setEditForm({ full_name: s.full_name ?? "", cpf: s.cpf ?? "", role: s.roles[0] ?? "viewer", driver_active: s.driver_active, modules: [...s.modules] });
+    setEditForm({ full_name: s.full_name ?? "", cpf: s.cpf ?? "", phone: s.phone ?? "", role: s.roles[0] ?? "viewer", driver_active: s.driver_active, modules: [...s.modules] });
   };
   const closeEdit = () => { setEditUser(null); setEditForm(null); };
 
@@ -519,7 +519,7 @@ function UsuariosPage() {
                   </span>
                 )}
               </div>
-              <div className="text-xs text-muted-foreground">{s.email}{s.cpf ? ` · CPF ${s.cpf}` : ""}</div>
+              <div className="text-xs text-muted-foreground">{s.email}{s.cpf ? ` · CPF ${s.cpf}` : ""}{s.phone ? ` · Tel. ${s.phone}` : ""}</div>
               {s.modules.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-0.5">
                   {MODULES_CONFIG.flatMap((mod) => {
@@ -568,6 +568,11 @@ function UsuariosPage() {
                 <Label>CPF</Label>
                 <Input value={newForm.cpf} onChange={(e) => setNewForm({ ...newForm, cpf: e.target.value })} placeholder="000.000.000-00" required minLength={11} />
                 <p className="text-[11px] text-muted-foreground">Será a senha inicial de acesso.</p>
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label className="flex items-center gap-1.5"><Smartphone className="size-3.5" />Telefone WhatsApp <span className="text-muted-foreground text-[11px] font-normal">(opcional)</span></Label>
+                <Input value={newForm.phone} onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })} placeholder="(15) 98107-2085 ou 5515981072085" />
+                <p className="text-[11px] text-muted-foreground">Formatado automaticamente para o padrão WhatsApp (55XXXXXXXXXXX).</p>
               </div>
               <div className="space-y-1.5">
                 <Label>Perfil</Label>
@@ -634,6 +639,13 @@ function UsuariosPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs">CPF</Label>
                       <Input value={editForm.cpf} onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value })} placeholder="000.000.000-00" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs flex items-center gap-1.5"><Smartphone className="size-3" />Telefone WhatsApp</Label>
+                      <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="(15) 98107-2085 ou 5515981072085" />
+                      {editForm.phone && (
+                        <p className="text-[11px] text-muted-foreground">Armazenado como: {editForm.phone.replace(/\D/g, "").startsWith("55") ? editForm.phone.replace(/\D/g, "") : "55" + editForm.phone.replace(/\D/g, "")}</p>
+                      )}
                     </div>
                   </div>
                 </section>

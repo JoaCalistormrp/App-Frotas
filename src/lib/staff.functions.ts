@@ -13,6 +13,14 @@ const KNOWN_MODULE_SLUGS = [
 ] as const;
 const ModuleSlugSchema = z.enum(KNOWN_MODULE_SLUGS);
 
+function formatPhoneForWaha(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  const cleaned = digits.startsWith("0") ? digits.slice(1) : digits;
+  return "55" + cleaned;
+}
+
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -40,10 +48,10 @@ export const listStaff = createServerFn({ method: "POST" })
 
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, cpf, driver_active")
+      .select("id, full_name, cpf, driver_active, phone")
       .in("id", ids);
     const profMap = new Map(
-      (profiles ?? []).map((p) => [p.id, { full_name: p.full_name as string | null, cpf: p.cpf as string | null, driver_active: p.driver_active as boolean }])
+      (profiles ?? []).map((p) => [p.id, { full_name: p.full_name as string | null, cpf: p.cpf as string | null, driver_active: p.driver_active as boolean, phone: p.phone as string | null }])
     );
 
     let authUsers: Array<{ id: string; email?: string }> = [];
@@ -69,7 +77,7 @@ export const listStaff = createServerFn({ method: "POST" })
       modulesMap.set(m.user_id, arr);
     }
 
-    const byUser = new Map<string, { id: string; email: string; full_name: string | null; cpf: string | null; roles: string[]; driver_active: boolean; modules: string[] }>();
+    const byUser = new Map<string, { id: string; email: string; full_name: string | null; cpf: string | null; phone: string | null; roles: string[]; driver_active: boolean; modules: string[] }>();
     for (const r of roles ?? []) {
       const prof = profMap.get(r.user_id);
       const cur = byUser.get(r.user_id) ?? {
@@ -77,6 +85,7 @@ export const listStaff = createServerFn({ method: "POST" })
         email: emailMap.get(r.user_id) ?? "",
         full_name: prof?.full_name ?? null,
         cpf: prof?.cpf ?? null,
+        phone: prof?.phone ?? null,
         roles: [],
         driver_active: prof?.driver_active ?? false,
         modules: modulesMap.get(r.user_id) ?? [],
@@ -109,6 +118,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
       email: z.string().email().optional().or(z.literal("")),
       cpf: cpfSchema,
       full_name: z.string().min(1).max(120),
+      phone: z.string().max(20).optional().default(""),
       role: RoleSchema,
       driver_active: z.boolean(),
       modules: z.array(ModuleSlugSchema),
@@ -118,6 +128,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
 
     const cpfDigits = data.cpf.replace(/\D/g, "");
+    const phoneFormatted = formatPhoneForWaha(data.phone ?? "");
 
     // Only check uniqueness when CPF is provided
     if (cpfDigits) {
@@ -144,7 +155,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const uid = created.user!.id;
 
-    await supabaseAdmin.from("profiles").upsert({ id: uid, full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active });
+    await supabaseAdmin.from("profiles").upsert({ id: uid, full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active, phone: phoneFormatted || null });
     await supabaseAdmin.from("user_roles").delete().eq("user_id", uid).eq("role", "driver");
     const { error: rErr } = await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: data.role });
     if (rErr) throw new Error(rErr.message);
@@ -168,6 +179,7 @@ export const updateStaffUser = createServerFn({ method: "POST" })
       user_id: z.string().uuid(),
       full_name: z.string().min(1).max(120),
       cpf: cpfSchema,
+      phone: z.string().max(20).optional().default(""),
       role: RoleSchema,
       driver_active: z.boolean(),
       modules: z.array(ModuleSlugSchema),
@@ -177,6 +189,7 @@ export const updateStaffUser = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
 
     const cpfDigits = data.cpf.replace(/\D/g, "");
+    const phoneFormatted = formatPhoneForWaha(data.phone ?? "");
 
     // Check CPF uniqueness only when provided
     if (cpfDigits) {
@@ -189,7 +202,7 @@ export const updateStaffUser = createServerFn({ method: "POST" })
       if (existing) throw new Error(`O CPF ${data.cpf} já está em uso por outro utilizador.`);
     }
 
-    await supabaseAdmin.from("profiles").update({ full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active }).eq("id", data.user_id);
+    await supabaseAdmin.from("profiles").update({ full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active, phone: phoneFormatted || null }).eq("id", data.user_id);
 
     // Replace role (single role per user)
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
