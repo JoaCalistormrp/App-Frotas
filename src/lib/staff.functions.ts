@@ -6,9 +6,24 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 const RoleSchema = z.enum(["admin", "viewer", "mechanic", "master", "driver"]);
 
 const KNOWN_MODULE_SLUGS = [
+  "frotas",
+  "frotas.dashboard",
+  "frotas.checklists",
+  "frotas.checklist_new",
+  "frotas.manutencao",
+  "frotas.veiculos",
+  "frotas.motoristas",
+  "frotas.lixeira",
+  "frotas.checklists.pesados",
+  "frotas.checklists.cesto_aereo",
+  "frotas.checklists.operacionais",
+  "frotas.checklists.maquinario",
+  "frotas.checklists.munck",
+  "frotas.checklists.administrativo",
   "financeiro",
   "frotas.agendamento",
   "frotas.agendamento.readonly",
+  "utilizadores",
   "licitacao",
 ] as const;
 const ModuleSlugSchema = z.enum(KNOWN_MODULE_SLUGS);
