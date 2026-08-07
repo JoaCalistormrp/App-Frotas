@@ -10,10 +10,19 @@ import { SlidersHorizontal, FileSpreadsheet, FileDown, AlertTriangle, CheckCircl
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { applyPdfBranding } from "@/lib/admin-pdf";
+import { applyPdfBranding, urlToDataUrl } from "@/lib/admin-pdf";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/checklists")({ component: HistoryPage });
+
+const VEHICLE_TYPE_LABELS: Record<string, string> = {
+  PESADOS: "Pesados",
+  OPERACIONAIS: "Operacionais",
+  CESTO_AEREO: "Cesto Aéreo",
+  ADMINISTRATIVO: "Administrativo",
+  MUNCK: "Munck",
+};
 
 type Row = {
   id: string; created_at: string; has_issues: boolean; itinerary: string | null; status: string;
@@ -45,6 +54,7 @@ function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [osMap, setOsMap] = useState<Record<string, { order_number: string; id: string }>>({});
+  const [reportingId, setReportingId] = useState<string | null>(null);
 
   const [f, setF] = useState<FilterState>({ from: "", to: "", plate: "", driver: "", base: "", type: "", issues: "all" });
   const [showFilter, setShowFilter] = useState(false);
@@ -108,6 +118,88 @@ function HistoryPage() {
     const d = data();
     autoTable(doc, { startY: 32, head: [Object.keys(d[0] ?? { Data: "" })], body: d.map((r) => Object.values(r).map((v) => String(v))), styles: { fontSize: 7 }, headStyles: { fillColor: [30, 40, 80] } });
     doc.save(`historico_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Relatório completo de UM checklist: todos os itens respondidos (Conforme/Não Conforme/N/A) + fotos anexadas
+  const exportChecklistReport = async (row: Row) => {
+    setReportingId(row.id);
+    try {
+      const [{ data: ck }, { data: resp }] = await Promise.all([
+        supabase.from("checklists").select("itinerary, odometer_start").eq("id", row.id).maybeSingle(),
+        (supabase as any)
+          .from("checklist_responses")
+          .select("status, observation, photo_url, checklist_items(name, checklist_categories(name))")
+          .eq("checklist_id", row.id),
+      ]);
+      const responses = (resp ?? []) as Array<{
+        status: string; observation: string | null; photo_url: string | null;
+        checklist_items: { name: string; checklist_categories: { name: string } | null } | null;
+      }>;
+
+      const paths = responses.map((r) => r.photo_url).filter(Boolean) as string[];
+      const photoUrls: Record<string, string> = {};
+      if (paths.length) {
+        await Promise.all(paths.map(async (p) => {
+          const { data: s } = await supabase.storage.from("checklist-photos").createSignedUrl(p, 3600);
+          if (s?.signedUrl) photoUrls[p] = s.signedUrl;
+        }));
+      }
+
+      const statusLabel = (s: string) => s === "OK" ? "Conforme" : s === "NAO_OK" ? "Não conforme" : "N/A";
+      const typeLabel = VEHICLE_TYPE_LABELS[row.vehicles?.vehicle_type ?? ""] ?? row.vehicles?.vehicle_type ?? "—";
+
+      const doc = new jsPDF();
+      await applyPdfBranding(doc, `Checklist • ${row.vehicles?.plate ?? "—"}`, `${typeLabel} • ${new Date(row.created_at).toLocaleString("pt-BR")}`);
+      doc.setFontSize(10);
+      const info = [
+        `Placa: ${row.vehicles?.plate ?? "—"} (${row.vehicles?.model ?? "—"})`,
+        `Tipo: ${typeLabel}`,
+        `Motorista: ${row.profiles?.full_name ?? "—"}`,
+        `Data: ${new Date(row.created_at).toLocaleString("pt-BR")}`,
+        `Base: ${row.vehicles?.base ?? "—"}`,
+        `Itinerário: ${ck?.itinerary ?? row.itinerary ?? "—"}`,
+        `Odômetro: ${ck?.odometer_start ?? "—"}`,
+        `Status: ${row.has_issues ? "Com falhas" : "OK"}`,
+      ];
+      info.forEach((t, i) => doc.text(t, 14, 36 + i * 6));
+      autoTable(doc, {
+        startY: 36 + info.length * 6 + 4,
+        head: [["Categoria", "Item", "Status", "Observação"]],
+        body: responses.map((r) => [
+          r.checklist_items?.checklist_categories?.name ?? "",
+          r.checklist_items?.name ?? "",
+          statusLabel(r.status),
+          r.observation ?? "",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 40, 80] },
+      });
+
+      const photoResps = responses.filter((r) => r.photo_url);
+      if (photoResps.length) {
+        doc.addPage();
+        await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${row.vehicles?.plate ?? "—"}`);
+        let y = 36;
+        const pageH = doc.internal.pageSize.getHeight();
+        for (const r of photoResps) {
+          const url = photoUrls[r.photo_url as string];
+          if (!url) continue;
+          try {
+            const dataUrl = await urlToDataUrl(url);
+            const label = `${r.checklist_items?.name ?? ""} — ${r.observation ?? ""}`;
+            if (y > pageH - 90) { doc.addPage(); await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${row.vehicles?.plate ?? "—"}`); y = 36; }
+            doc.setFontSize(9); doc.text(label.slice(0, 100), 14, y);
+            doc.addImage(dataUrl, "JPEG", 14, y + 3, 80, 60, undefined, "FAST");
+            y += 72;
+          } catch { /* pula foto corrompida */ }
+        }
+      }
+      doc.save(`checklist_${row.vehicles?.plate ?? row.id}_${new Date(row.created_at).toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReportingId(null);
+    }
   };
 
   return (
@@ -206,6 +298,15 @@ function HistoryPage() {
                         <Wrench className="size-3" />Abrir OS
                       </Link>
                 )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                  disabled={reportingId === c.id}
+                  onClick={() => exportChecklistReport(c)}
+                >
+                  <FileDown className="size-3.5 mr-1" />{reportingId === c.id ? "Gerando..." : "Relatório"}
+                </Button>
                 {(c.photo_count ?? 0) > 0 && (
                   <span className="text-xs text-muted-foreground">{c.photo_count} foto(s)</span>
                 )}

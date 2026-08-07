@@ -14,6 +14,17 @@ export async function getLogoDataUrl(): Promise<string> {
   });
 }
 
+export async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
 export async function applyPdfBranding(doc: jsPDF, title: string, subtitle?: string) {
   const logo = await getLogoDataUrl();
   const w = doc.internal.pageSize.getWidth();

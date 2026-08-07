@@ -10,10 +10,59 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
+      auth_attempts: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          identifier: string
+          success: boolean
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          identifier: string
+          success?: boolean
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          identifier?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
       checklist_categories: {
         Row: {
           created_at: string
@@ -225,30 +274,193 @@ export type Database = {
           },
         ]
       }
+      licitacao_trusted_devices: {
+        Row: {
+          approved: boolean
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          device_label: string | null
+          id: string
+          ip_address: string | null
+          token: string
+          user_id: string
+        }
+        Insert: {
+          approved?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          device_label?: string | null
+          id?: string
+          ip_address?: string | null
+          token: string
+          user_id: string
+        }
+        Update: {
+          approved?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          device_label?: string | null
+          id?: string
+          ip_address?: string | null
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      licitacoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_abertura: string | null
+          data_vencimento: string | null
+          id: string
+          modalidade: Database["public"]["Enums"]["licitacao_modalidade"] | null
+          numero_processo: string | null
+          observacoes: string | null
+          orgao_licitante: string | null
+          responsavel_id: string | null
+          status: Database["public"]["Enums"]["licitacao_status"]
+          titulo: string
+          updated_at: string
+          valor_estimado: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_abertura?: string | null
+          data_vencimento?: string | null
+          id?: string
+          modalidade?:
+            | Database["public"]["Enums"]["licitacao_modalidade"]
+            | null
+          numero_processo?: string | null
+          observacoes?: string | null
+          orgao_licitante?: string | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["licitacao_status"]
+          titulo: string
+          updated_at?: string
+          valor_estimado?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_abertura?: string | null
+          data_vencimento?: string | null
+          id?: string
+          modalidade?:
+            | Database["public"]["Enums"]["licitacao_modalidade"]
+            | null
+          numero_processo?: string | null
+          observacoes?: string | null
+          orgao_licitante?: string | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["licitacao_status"]
+          titulo?: string
+          updated_at?: string
+          valor_estimado?: number | null
+        }
+        Relationships: []
+      }
+      login: {
+        Row: {
+          id: number
+          nivel_permissao: number
+          senha: string
+          usuario: string
+        }
+        Insert: {
+          id?: number
+          nivel_permissao: number
+          senha: string
+          usuario: string
+        }
+        Update: {
+          id?: number
+          nivel_permissao?: number
+          senha?: string
+          usuario?: string
+        }
+        Relationships: []
+      }
+      login_rm: {
+        Row: {
+          id: number
+          mac: string | null
+          nivel_permissao: number
+          senha: string
+          usuario: string
+        }
+        Insert: {
+          id?: number
+          mac?: string | null
+          nivel_permissao: number
+          senha: string
+          usuario: string
+        }
+        Update: {
+          id?: number
+          mac?: string | null
+          nivel_permissao?: number
+          senha?: string
+          usuario?: string
+        }
+        Relationships: []
+      }
+      logs_poste: {
+        Row: {
+          cpu_uso: number | null
+          created_at: string | null
+          id: number
+          poste_nome: string | null
+          ram_uso: number | null
+          temperatura: number | null
+        }
+        Insert: {
+          cpu_uso?: number | null
+          created_at?: string | null
+          id?: number
+          poste_nome?: string | null
+          ram_uso?: number | null
+          temperatura?: number | null
+        }
+        Update: {
+          cpu_uso?: number | null
+          created_at?: string | null
+          id?: number
+          poste_nome?: string | null
+          ram_uso?: number | null
+          temperatura?: number | null
+        }
+        Relationships: []
+      }
       maintenance_evolutions: {
         Row: {
           created_at: string
           id: string
-          observation: string
+          observation: string | null
           order_id: string
           status: Database["public"]["Enums"]["maintenance_status"] | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          observation: string
+          observation?: string | null
           order_id: string
           status?: Database["public"]["Enums"]["maintenance_status"] | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          observation?: string
+          observation?: string | null
           order_id?: string
           status?: Database["public"]["Enums"]["maintenance_status"] | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -258,25 +470,48 @@ export type Database = {
             referencedRelation: "maintenance_orders"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      maintenance_financial_links: {
+        Row: {
+          ap: string
+          documento: string
+          extenso_pro: string | null
+          id: string
+          linked_at: string
+          linked_by: string | null
+          maintenance_order_id: string
+          projeto: string | null
+          valor: number | null
+        }
+        Insert: {
+          ap: string
+          documento: string
+          extenso_pro?: string | null
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          maintenance_order_id: string
+          projeto?: string | null
+          valor?: number | null
+        }
+        Update: {
+          ap?: string
+          documento?: string
+          extenso_pro?: string | null
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          maintenance_order_id?: string
+          projeto?: string | null
+          valor?: number | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "maintenance_evolutions_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "maintenance_financial_links_maintenance_order_id_fkey"
+            columns: ["maintenance_order_id"]
             isOneToOne: false
-            referencedRelation: "drivers_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_evolutions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_evolutions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles_public"
+            referencedRelation: "maintenance_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -298,6 +533,8 @@ export type Database = {
       }
       maintenance_orders: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           base_code: string
           checklist_id: string | null
           combustivel_chegada: string | null
@@ -308,6 +545,7 @@ export type Database = {
           delete_reason: string | null
           deleted_at: string | null
           deleted_by: string | null
+          denial_reason: string | null
           driver_id: string | null
           failure_description: string | null
           final_observation: string | null
@@ -340,6 +578,8 @@ export type Database = {
           workshop: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           base_code: string
           checklist_id?: string | null
           combustivel_chegada?: string | null
@@ -350,6 +590,7 @@ export type Database = {
           delete_reason?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          denial_reason?: string | null
           driver_id?: string | null
           failure_description?: string | null
           final_observation?: string | null
@@ -382,6 +623,8 @@ export type Database = {
           workshop?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           base_code?: string
           checklist_id?: string | null
           combustivel_chegada?: string | null
@@ -392,6 +635,7 @@ export type Database = {
           delete_reason?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          denial_reason?: string | null
           driver_id?: string | null
           failure_description?: string | null
           final_observation?: string | null
@@ -425,59 +669,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "maintenance_orders_checklist_id_fkey"
-            columns: ["checklist_id"]
-            isOneToOne: false
-            referencedRelation: "checklists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "drivers_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "maintenance_orders_approved_by_fkey"
+            columns: ["approved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "drivers_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "profiles_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_orders_response_id_fkey"
-            columns: ["response_id"]
-            isOneToOne: false
-            referencedRelation: "checklist_responses"
             referencedColumns: ["id"]
           },
           {
@@ -489,32 +684,73 @@ export type Database = {
           },
         ]
       }
+      maintenance_os_link_finalized: {
+        Row: {
+          finalized_at: string
+          finalized_by: string | null
+          id: string
+          maintenance_order_id: string
+        }
+        Insert: {
+          finalized_at?: string
+          finalized_by?: string | null
+          id?: string
+          maintenance_order_id: string
+        }
+        Update: {
+          finalized_at?: string
+          finalized_by?: string | null
+          id?: string
+          maintenance_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_os_link_finalized_maintenance_order_id_fkey"
+            columns: ["maintenance_order_id"]
+            isOneToOne: true
+            referencedRelation: "maintenance_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_photos: {
         Row: {
           caption: string | null
-          category: Database["public"]["Enums"]["maintenance_photo_category"]
+          category:
+            | Database["public"]["Enums"]["maintenance_photo_category"]
+            | null
           created_at: string
           id: string
           order_id: string
-          storage_path: string
+          photo_url: string | null
+          storage_path: string | null
+          teste: string | null
           uploaded_by: string | null
         }
         Insert: {
           caption?: string | null
-          category: Database["public"]["Enums"]["maintenance_photo_category"]
+          category?:
+            | Database["public"]["Enums"]["maintenance_photo_category"]
+            | null
           created_at?: string
           id?: string
           order_id: string
-          storage_path: string
+          photo_url?: string | null
+          storage_path?: string | null
+          teste?: string | null
           uploaded_by?: string | null
         }
         Update: {
           caption?: string | null
-          category?: Database["public"]["Enums"]["maintenance_photo_category"]
+          category?:
+            | Database["public"]["Enums"]["maintenance_photo_category"]
+            | null
           created_at?: string
           id?: string
           order_id?: string
-          storage_path?: string
+          photo_url?: string | null
+          storage_path?: string | null
+          teste?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -539,12 +775,12 @@ export type Database = {
           company: string | null
           cpf: string | null
           created_at: string
+          driver_active: boolean
           full_name: string | null
           id: string
           phone: string | null
           role_function: Database["public"]["Enums"]["driver_function"] | null
           unlock_card: string | null
-          driver_active: boolean
           updated_at: string
         }
         Insert: {
@@ -558,12 +794,12 @@ export type Database = {
           company?: string | null
           cpf?: string | null
           created_at?: string
+          driver_active?: boolean
           full_name?: string | null
-          id: string
+          id?: string
           phone?: string | null
           role_function?: Database["public"]["Enums"]["driver_function"] | null
           unlock_card?: string | null
-          driver_active?: boolean
           updated_at?: string
         }
         Update: {
@@ -577,13 +813,88 @@ export type Database = {
           company?: string | null
           cpf?: string | null
           created_at?: string
+          driver_active?: boolean
           full_name?: string | null
           id?: string
           phone?: string | null
           role_function?: Database["public"]["Enums"]["driver_function"] | null
           unlock_card?: string | null
-          driver_active?: boolean
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          subscription: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          subscription: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          subscription?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          resource: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          resource?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          resource?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_module_access: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          module_slug: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          module_slug: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          module_slug?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -608,18 +919,76 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_schedules: {
+        Row: {
+          assigned_user_id: string | null
+          created_at: string
+          created_by: string
+          end_date: string
+          end_time: string | null
+          id: string
+          notes: string | null
+          start_date: string
+          start_time: string | null
+          title: string
+          type: string
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          assigned_user_id?: string | null
+          created_at?: string
+          created_by: string
+          end_date: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_date: string
+          start_time?: string | null
+          title: string
+          type: string
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          assigned_user_id?: string | null
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_date?: string
+          start_time?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_schedules_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           active: boolean
           base: string | null
           brand: string | null
           category: Database["public"]["Enums"]["vehicle_category"] | null
+          checklist_types: string[] | null
           created_at: string
           document_url: string | null
           fuel_type: string | null
           id: string
           mileage: number | null
           model: string | null
+          oil_change_due_km: number | null
           plate: string
           renavam: string | null
           sector: string | null
@@ -632,12 +1001,14 @@ export type Database = {
           base?: string | null
           brand?: string | null
           category?: Database["public"]["Enums"]["vehicle_category"] | null
+          checklist_types?: string[] | null
           created_at?: string
           document_url?: string | null
           fuel_type?: string | null
           id?: string
           mileage?: number | null
           model?: string | null
+          oil_change_due_km?: number | null
           plate: string
           renavam?: string | null
           sector?: string | null
@@ -650,12 +1021,14 @@ export type Database = {
           base?: string | null
           brand?: string | null
           category?: Database["public"]["Enums"]["vehicle_category"] | null
+          checklist_types?: string[] | null
           created_at?: string
           document_url?: string | null
           fuel_type?: string | null
           id?: string
           mileage?: number | null
           model?: string | null
+          oil_change_due_km?: number | null
           plate?: string
           renavam?: string | null
           sector?: string | null
@@ -667,54 +1040,21 @@ export type Database = {
       }
     }
     Views: {
-      drivers_directory: {
-        Row: {
-          full_name: string | null
-          id: string | null
-        }
-        Insert: {
-          full_name?: string | null
-          id?: string | null
-        }
-        Update: {
-          full_name?: string | null
-          id?: string | null
-        }
-        Relationships: []
-      }
-      profiles_public: {
-        Row: {
-          base: string | null
-          company: string | null
-          full_name: string | null
-          id: string | null
-          role_function: Database["public"]["Enums"]["driver_function"] | null
-        }
-        Insert: {
-          base?: string | null
-          company?: string | null
-          full_name?: string | null
-          id?: string | null
-          role_function?: Database["public"]["Enums"]["driver_function"] | null
-        }
-        Update: {
-          base?: string | null
-          company?: string | null
-          full_name?: string | null
-          id?: string | null
-          role_function?: Database["public"]["Enums"]["driver_function"] | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      get_email_by_cpf: { Args: { cpf_input: string }; Returns: string }
+      has_admin_or_master: { Args: { _user_id: string }; Returns: boolean }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | { Args: { required_role: string; user_id: string }; Returns: boolean }
+      is_master_user: { Args: { _user_id: string }; Returns: boolean }
       next_order_number: { Args: { _base: string }; Returns: string }
     }
     Enums: {
@@ -725,11 +1065,30 @@ export type Database = {
         | "administrativo"
         | "encarregado"
         | "motorista"
-      maintenance_photo_category: "falha" | "execucao" | "conclusao"
+        | "eletricista"
+        | "mecanico"
+      licitacao_modalidade:
+        | "pregao_eletronico"
+        | "pregao_presencial"
+        | "concorrencia"
+        | "tomada_de_precos"
+        | "convite"
+        | "dispensa"
+        | "inexigibilidade"
+      licitacao_status:
+        | "mapeada"
+        | "em_analise"
+        | "proposta_enviada"
+        | "aguardando_resultado"
+        | "ganha"
+        | "perdida"
+      maintenance_photo_category:
+        | "falha"
+        | "execucao"
+        | "conclusao"
+        | "orcamento"
       maintenance_status:
         | "pendente"
-        | "aprovada"
-        | "negada"
         | "em_manutencao"
         | "solucionado"
         | "aberta"
@@ -741,6 +1100,9 @@ export type Database = {
         | "em_execucao"
         | "teste_final"
         | "finalizada"
+        | "maintenance_orders"
+        | "aprovada"
+        | "negada"
         | "cancelada"
       maintenance_type: "SMI" | "SMV"
       response_status: "OK" | "NAO_OK" | "NA"
@@ -751,6 +1113,7 @@ export type Database = {
         | "CESTO_AEREO"
         | "ADMINISTRATIVO"
         | "MUNCK"
+        | "MAQUINARIO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -876,6 +1239,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "driver", "viewer", "mechanic", "master"],
@@ -885,12 +1251,34 @@ export const Constants = {
         "administrativo",
         "encarregado",
         "motorista",
+        "eletricista",
+        "mecanico",
       ],
-      maintenance_photo_category: ["falha", "execucao", "conclusao"],
+      licitacao_modalidade: [
+        "pregao_eletronico",
+        "pregao_presencial",
+        "concorrencia",
+        "tomada_de_precos",
+        "convite",
+        "dispensa",
+        "inexigibilidade",
+      ],
+      licitacao_status: [
+        "mapeada",
+        "em_analise",
+        "proposta_enviada",
+        "aguardando_resultado",
+        "ganha",
+        "perdida",
+      ],
+      maintenance_photo_category: [
+        "falha",
+        "execucao",
+        "conclusao",
+        "orcamento",
+      ],
       maintenance_status: [
         "pendente",
-        "aprovada",
-        "negada",
         "em_manutencao",
         "solucionado",
         "aberta",
@@ -902,6 +1290,9 @@ export const Constants = {
         "em_execucao",
         "teste_final",
         "finalizada",
+        "maintenance_orders",
+        "aprovada",
+        "negada",
         "cancelada",
       ],
       maintenance_type: ["SMI", "SMV"],
@@ -913,6 +1304,7 @@ export const Constants = {
         "CESTO_AEREO",
         "ADMINISTRATIVO",
         "MUNCK",
+        "MAQUINARIO",
       ],
     },
   },

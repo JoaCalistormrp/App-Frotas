@@ -90,6 +90,44 @@ function FailurePhotoModal({ failure, onClose }: { failure: SelectedFailure; onC
   );
 }
 
+// --- MODAL PARA VER TODAS AS FALHAS DO CHECKLIST AO ABRIR UMA OS ---
+function FailuresListModal({ failures, onClose }: { failures: NonNullable<ChecklistRow["failures"]>; onClose: () => void }) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    const withPhoto = failures.filter((f) => f.photo_url);
+    if (!withPhoto.length) return;
+    Promise.all(withPhoto.map(async (f) => {
+      const { data } = await supabase.storage.from("checklist-photos").createSignedUrl(f.photo_url as string, 3600);
+      return [f.id, data?.signedUrl ?? ""] as const;
+    })).then((entries) => { if (isMounted) setUrls(Object.fromEntries(entries)); });
+    return () => { isMounted = false; };
+  }, [failures]);
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/60 grid place-items-center p-4" onClick={onClose}>
+      <Card className="w-full max-w-md p-4 space-y-3 max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-border pb-2">
+          <h3 className="font-bold text-base text-destructive">Falhas relatadas no checklist</h3>
+          <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
+        </div>
+        {failures.map((f) => (
+          <div key={f.id} className="p-2 bg-destructive/5 rounded border border-destructive/10 space-y-1.5">
+            <div className="font-semibold text-sm text-destructive/90">{f.item_name}</div>
+            {f.observation && <div className="text-xs text-muted-foreground">{f.observation}</div>}
+            {f.photo_url && (
+              urls[f.id]
+                ? <a href={urls[f.id]} target="_blank" rel="noreferrer"><img src={urls[f.id]} alt={f.item_name} className="w-full max-h-48 object-cover rounded border border-border" /></a>
+                : <div className="text-[11px] text-muted-foreground">Carregando foto...</div>
+            )}
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/mechanic")({ component: MechanicPage });
 
 type Order = {
@@ -248,7 +286,7 @@ function StatusBadge({ status }: { status: Order["status"] }) {
 
 type ChecklistRow = {
   id: string; vehicle_id: string; driver_id: string; has_issues: boolean; status: string;
-  completed_at: string | null; created_at: string; observations: string | null;
+  completed_at: string | null; created_at: string; observations: string | null; odometer_start: number | null;
   vehicle?: { plate: string | null; model: string | null; base: string | null } | null;
   driver_name?: string | null;
   failures?: Array<{ id: string; item_name: string; observation: string | null; photo_url: string | null }>;
@@ -263,7 +301,7 @@ function ChecklistsPanel({ onOpenOSFromChecklist, refreshTick }: { onOpenOSFromC
 
   const load = async () => {
     setLoading(true);
-    let q = supabase.from("checklists").select("id, vehicle_id, driver_id, has_issues, status, completed_at, created_at, observations").order("created_at", { ascending: false }).limit(80);
+    let q = supabase.from("checklists").select("id, vehicle_id, driver_id, has_issues, status, completed_at, created_at, observations, odometer_start").order("created_at", { ascending: false }).limit(80);
     if (filter === "falhas") q = q.eq("has_issues", true);
     if (filter === "ok") q = q.eq("has_issues", false);
     const { data, error } = await q;
@@ -460,9 +498,10 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
 
   const save = async () => {
     if (isLocked) return;
+    if (!user?.id) return toast.error("Sessão expirada. Faça login novamente.");
     const err = validateSavePayload(status, finalObs, photos, laborDesc, partsNeeded);
     if (err) return toast.error(err);
-    
+
     setBusy(true);
     try {
       const payload = {
@@ -481,7 +520,7 @@ function OrderModal({ order, onClose, onSaved }: { order: Order; onClose: () => 
       const { error } = await supabase.from("maintenance_orders").update(payload).eq("id", order.id);
       if (error) throw error;
       const obs = evoNote.trim() || `Status atualizado para "${statusLabel(status as any)}"`;
-      await supabase.from("maintenance_evolutions").insert({ order_id: order.id, user_id: user?.id ?? null, status, observation: obs });
+      await supabase.from("maintenance_evolutions").insert({ order_id: order.id, user_id: user.id, status, observation: obs });
       toast.success("OS atualizada com sucesso");
       onSaved();
     } catch (e) { toast.error((e as Error).message); }
@@ -651,9 +690,16 @@ function NewOrderModal({ onClose, onCreated, presetChecklist }: { onClose: () =>
       ? presetChecklist.failures.map((f) => `• ${f.item_name}${f.observation ? `: ${f.observation}` : ""}`).join("\n")
       : ""
   );
+  const [kmAtual, setKmAtual] = useState(
+    presetChecklist?.odometer_start != null ? String(presetChecklist.odometer_start) : ""
+  );
   const [serviceType, setServiceType] = useState("");
   const [workshop, setWorkshop] = useState("");
+  const [combustivelChegada, setCombustivelChegada] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showFailures, setShowFailures] = useState(false);
+
+  const selectedVehicle = vehicles.find((x) => x.id === vehicleId) ?? null;
 
   useEffect(() => {
     supabase.from("vehicles").select("id, plate, model, base").eq("active", true).order("plate").then(({ data }) => {
@@ -686,6 +732,9 @@ function NewOrderModal({ onClose, onCreated, presetChecklist }: { onClose: () =>
         created_by: user?.id ?? null,
         driver_id: presetChecklist?.driver_id ?? null,
         checklist_id: presetChecklist?.id ?? null,
+        km_atual: kmAtual ? Number(kmAtual) : null,
+        mod_carro: v?.model ?? presetChecklist?.vehicle?.model ?? null,
+        combustivel_chegada: orderType === "SMV" ? (combustivelChegada || null) : null,
       });
       if (error) throw error;
 
@@ -724,19 +773,52 @@ function NewOrderModal({ onClose, onCreated, presetChecklist }: { onClose: () =>
             ))}
           </select>
         </div>
+        {presetChecklist && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <div>
+              <Label className="text-xs">Placa</Label>
+              <div className="font-medium">{selectedVehicle?.plate ?? presetChecklist.vehicle?.plate ?? "—"}</div>
+            </div>
+            <div>
+              <Label className="text-xs">Modelo</Label>
+              <div className="font-medium">{selectedVehicle?.model ?? presetChecklist.vehicle?.model ?? "—"}</div>
+            </div>
+            <div>
+              <Label className="text-xs">Motorista</Label>
+              <div className="font-medium">{presetChecklist.driver_name ?? "—"}</div>
+            </div>
+            <div>
+              <Label className="text-xs">KM atual</Label>
+              <Input value={kmAtual} onChange={(e) => setKmAtual(e.target.value)} type="number" placeholder="Ex: 125000" />
+            </div>
+          </div>
+        )}
         <div>
-          <Label className="text-xs">Descrição da falha</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Descrição da falha</Label>
+            {!!presetChecklist?.failures?.length && (
+              <button type="button" onClick={() => setShowFailures(true)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Search className="size-3" />Ver falha relatada
+              </button>
+            )}
+          </div>
           <Textarea rows={4} value={failure} onChange={(e) => setFailure(e.target.value)} />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div><Label className="text-xs">Tipo de serviço</Label><Input value={serviceType} onChange={(e) => setServiceType(e.target.value)} /></div>
-          <div><Label className="text-xs">Oficina</Label><Input value={workshop} onChange={(e) => setWorkshop(e.target.value)} /></div>
-        </div>
+        <div><Label className="text-xs">Tipo de serviço</Label><Input value={serviceType} onChange={(e) => setServiceType(e.target.value)} /></div>
+        {orderType === "SMV" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div><Label className="text-xs">Oficina responsável</Label><Input value={workshop} onChange={(e) => setWorkshop(e.target.value)} /></div>
+            <div><Label className="text-xs">Combustível de chegada</Label><Input value={combustivelChegada} onChange={(e) => setCombustivelChegada(e.target.value)} placeholder="Ex: 1/2 tanque" /></div>
+          </div>
+        )}
         <div className="flex gap-2 pt-2">
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
           <Button className="flex-1" onClick={create} disabled={busy}>{busy ? "..." : "Abrir OS"}</Button>
         </div>
       </Card>
+      {showFailures && !!presetChecklist?.failures?.length && (
+        <FailuresListModal failures={presetChecklist.failures} onClose={() => setShowFailures(false)} />
+      )}
     </div>
   );
 }

@@ -45,6 +45,36 @@ async function assertScheduleOwnership(userId: string, scheduleId: string) {
   }
 }
 
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+function timesOverlap(aStart: string | null, aEnd: string | null, bStart: string | null, bEnd: string | null): boolean {
+  // Sem horário definido = dia inteiro: conflita com qualquer outro agendamento nesse dia.
+  if (!aStart || !aEnd || !bStart || !bEnd) return true;
+  return aStart < bEnd && bStart < aEnd;
+}
+
+async function assertNoTimeConflict(opts: {
+  vehicleId: string; startDate: string; endDate: string;
+  startTime: string | null; endTime: string | null; excludeId?: string;
+}) {
+  let query = supabaseAdmin
+    .from("vehicle_schedules")
+    .select("id, start_date, end_date, start_time, end_time, title")
+    .eq("vehicle_id", opts.vehicleId)
+    .lte("start_date", opts.endDate)
+    .gte("end_date", opts.startDate);
+  if (opts.excludeId) query = query.neq("id", opts.excludeId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const conflict = (data ?? []).find((row) =>
+    timesOverlap(opts.startTime, opts.endTime, row.start_time, row.end_time),
+  );
+  if (conflict) {
+    throw new Error(`Conflito de horário com "${conflict.title}" neste veículo.`);
+  }
+}
+
 async function assertScheduleWrite(userId: string) {
   const { data } = await supabaseAdmin
     .from("user_roles")
@@ -84,7 +114,7 @@ export const listSchedules = createServerFn({ method: "POST" })
     const { data: rows, error } = await (supabaseAdmin as any)
       .from("vehicle_schedules")
       .select(`
-        id, vehicle_id, type, title, notes, start_date, end_date,
+        id, vehicle_id, type, title, notes, start_date, end_date, start_time, end_time,
         assigned_user_id, created_by, created_at,
         vehicles(plate, model)
       `)
@@ -117,6 +147,8 @@ export const listSchedules = createServerFn({ method: "POST" })
       notes:              (r.notes ?? null) as string | null,
       start_date:         r.start_date as string,
       end_date:           r.end_date as string,
+      start_time:         (r.start_time ?? null) as string | null,
+      end_time:           (r.end_time ?? null) as string | null,
       assigned_user_id:   (r.assigned_user_id ?? null) as string | null,
       assigned_user_name: r.assigned_user_id ? (profilesMap.get(r.assigned_user_id) ?? null) : null,
       created_by:         r.created_by as string,
@@ -133,12 +165,20 @@ export const createSchedule = createServerFn({ method: "POST" })
       notes:            z.string().max(1000).optional(),
       start_date:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       end_date:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      start_time:       z.string().regex(TIME_RE).optional().nullable(),
+      end_time:         z.string().regex(TIME_RE).optional().nullable(),
       assigned_user_id: z.string().uuid().optional().nullable(),
     }).parse(input),
   )
   .handler(async ({ context, data }) => {
     await assertScheduleWrite(context.userId);
     if (data.end_date < data.start_date) throw new Error("Data de fim deve ser igual ou posterior à data de início.");
+    if (!!data.start_time !== !!data.end_time) throw new Error("Informe hora de início e fim, ou deixe ambas em branco.");
+    if (data.start_time && data.end_time && data.end_time <= data.start_time) throw new Error("Hora de fim deve ser posterior à hora de início.");
+    await assertNoTimeConflict({
+      vehicleId: data.vehicle_id, startDate: data.start_date, endDate: data.end_date,
+      startTime: data.start_time ?? null, endTime: data.end_time ?? null,
+    });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: row, error } = await (supabaseAdmin as any)
@@ -150,6 +190,8 @@ export const createSchedule = createServerFn({ method: "POST" })
         notes:            data.notes ?? null,
         start_date:       data.start_date,
         end_date:         data.end_date,
+        start_time:       data.start_time ?? null,
+        end_time:         data.end_time ?? null,
         assigned_user_id: data.assigned_user_id ?? null,
         created_by:       context.userId,
       })
@@ -171,6 +213,8 @@ export const updateSchedule = createServerFn({ method: "POST" })
       notes:            z.string().max(1000).optional().nullable(),
       start_date:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       end_date:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      start_time:       z.string().regex(TIME_RE).optional().nullable(),
+      end_time:         z.string().regex(TIME_RE).optional().nullable(),
       assigned_user_id: z.string().uuid().optional().nullable(),
     }).parse(input),
   )
@@ -178,6 +222,12 @@ export const updateSchedule = createServerFn({ method: "POST" })
     await assertScheduleWrite(context.userId);
     await assertScheduleOwnership(context.userId, data.id);
     if (data.end_date < data.start_date) throw new Error("Data de fim deve ser igual ou posterior à data de início.");
+    if (!!data.start_time !== !!data.end_time) throw new Error("Informe hora de início e fim, ou deixe ambas em branco.");
+    if (data.start_time && data.end_time && data.end_time <= data.start_time) throw new Error("Hora de fim deve ser posterior à hora de início.");
+    await assertNoTimeConflict({
+      vehicleId: data.vehicle_id, startDate: data.start_date, endDate: data.end_date,
+      startTime: data.start_time ?? null, endTime: data.end_time ?? null, excludeId: data.id,
+    });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabaseAdmin as any)
@@ -189,6 +239,8 @@ export const updateSchedule = createServerFn({ method: "POST" })
         notes:            data.notes ?? null,
         start_date:       data.start_date,
         end_date:         data.end_date,
+        start_time:       data.start_time ?? null,
+        end_time:         data.end_time ?? null,
         assigned_user_id: data.assigned_user_id ?? null,
         updated_at:       new Date().toISOString(),
       })

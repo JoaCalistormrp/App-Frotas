@@ -14,6 +14,7 @@ type Vehicle = {
   id: string; plate: string; model: string | null; brand: string | null; year: number | null;
   renavam: string | null; vehicle_type: string; checklist_types?: string[] | null; category: string | null; base: string | null;
   sector: string | null; active: boolean; mileage: number | null; fuel_type: string | null; document_url: string | null;
+  oil_change_due_km: number | null;
 };
 
 const CHECKLIST_TYPES = [
@@ -174,6 +175,9 @@ function VehiclesPage() {
                   {v.plate}
                   {v.category && <span className="text-[10px] uppercase bg-primary/10 text-primary px-2 py-0.5 rounded">{CATEGORIES.find((c) => c.value === v.category)?.label ?? v.category}</span>}
                   {!v.active && <span className="text-[10px] uppercase bg-muted text-muted-foreground px-2 py-0.5 rounded">Inativo</span>}
+                  {v.oil_change_due_km != null && v.mileage != null && v.mileage >= v.oil_change_due_km && (
+                    <span className="text-[10px] uppercase bg-destructive/15 text-destructive px-2 py-0.5 rounded">Óleo vencido</span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">
                   {[v.brand, v.model, v.year].filter(Boolean).join(" • ") || "—"}
@@ -205,6 +209,7 @@ function VehicleModal({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; 
   const [checklistTypes, setChecklistTypes] = useState<string[]>(vehicle?.checklist_types ?? []);
   const [base, setBase] = useState(vehicle?.base ?? "");
   const [mileage, setMileage] = useState(vehicle?.mileage?.toString() ?? "");
+  const [oilChangeDueKm, setOilChangeDueKm] = useState(vehicle?.oil_change_due_km?.toString() ?? "");
   const [fuel, setFuel] = useState(vehicle?.fuel_type ?? "");
   const [active, setActive] = useState(vehicle?.active ?? true);
   const [file, setFile] = useState<File | null>(null);
@@ -243,6 +248,7 @@ function VehicleModal({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; 
         checklist_types: checklistTypes as never,
         base: base || null,
         mileage: mileage ? Number(mileage) : null,
+        oil_change_due_km: oilChangeDueKm ? Number(oilChangeDueKm) : null,
         fuel_type: fuel || null,
         document_url: path, active,
       };
@@ -280,6 +286,7 @@ function VehicleModal({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; 
           <div><Label className="text-xs">Ano</Label><Input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></div>
           <div><Label className="text-xs">RENAVAM</Label><Input value={renavam} onChange={(e) => setRenavam(e.target.value)} /></div>
           <div><Label className="text-xs">Quilometragem</Label><Input type="number" value={mileage} onChange={(e) => setMileage(e.target.value)} /></div>
+          <div><Label className="text-xs">Validade do óleo (KM)</Label><Input type="number" value={oilChangeDueKm} onChange={(e) => setOilChangeDueKm(e.target.value)} placeholder="Ex: 70000" /></div>
           <div><Label className="text-xs">Categoria</Label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
               <option value="">—</option>

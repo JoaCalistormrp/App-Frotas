@@ -10,6 +10,7 @@ export const Route = createFileRoute("/admin/")({
 
 type DriverRow = { id: string; full_name: string | null; cnh: string | null; cnh_expires_at: string | null };
 type Ck = { id: string; created_at: string; has_issues: boolean; vehicles: { plate: string } | null; driver_id: string };
+type OilVehicle = { id: string; plate: string; mileage: number | null; oil_change_due_km: number | null };
 
 function daysUntil(d: string | null): number | null {
   if (!d) return null;
@@ -28,6 +29,7 @@ function AdminDashboard() {
   const [todayCks, setTodayCks] = useState<Ck[]>([]);
   const [issuesToday, setIssuesToday] = useState<Ck[]>([]);
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
+  const [oilVehicles, setOilVehicles] = useState<OilVehicle[]>([]);
   const [stats, setStats] = useState({ vehicles: 0, drivers: 0, openOrders: 0 });
   const [driverNames, setDriverNames] = useState<Record<string, string>>({});
 
@@ -47,6 +49,8 @@ function AdminDashboard() {
     }
     const { data: ds } = await supabase.from("profiles").select("id, full_name, cnh, cnh_expires_at").not("cnh_expires_at", "is", null);
     setDrivers((ds ?? []) as DriverRow[]);
+    const { data: ov } = await supabase.from("vehicles").select("id, plate, mileage, oil_change_due_km").eq("active", true).not("oil_change_due_km", "is", null);
+    setOilVehicles((ov ?? []) as OilVehicle[]);
     const [{ count: vc }, { count: dc }, { count: oc }] = await Promise.all([
       supabase.from("vehicles").select("*", { count: "exact", head: true }).eq("active", true),
       supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "driver"),
@@ -57,6 +61,7 @@ function AdminDashboard() {
 
   const expired = drivers.filter((d) => (daysUntil(d.cnh_expires_at) ?? 999) < 0);
   const expiring = drivers.filter((d) => { const x = daysUntil(d.cnh_expires_at); return x !== null && x >= 0 && x <= 30; });
+  const oilExpired = oilVehicles.filter((v) => v.mileage != null && v.oil_change_due_km != null && v.mileage >= v.oil_change_due_km);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -87,7 +92,7 @@ function AdminDashboard() {
       </div>
 
       {/* Alerts + lists */}
-      <div className="grid md:grid-cols-2 gap-3">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         <Card className="p-4 border-l-4 border-l-destructive">
           <div className="flex items-center gap-2 font-semibold mb-3"><Bell className="size-4 text-destructive" />Alertas de CNH</div>
           {expired.length === 0 && expiring.length === 0 && <div className="text-sm text-muted-foreground">Nenhum alerta.</div>}
@@ -108,6 +113,32 @@ function AdminDashboard() {
             </div>
           )}
           <Link to="/admin/drivers" className="text-xs text-primary mt-3 inline-block">Ver todos os motoristas →</Link>
+        </Card>
+
+        <Card className="p-4 border-l-4 border-l-destructive">
+          <div className="flex items-center gap-2 font-semibold mb-3"><Bell className="size-4 text-destructive" />Alertas de óleo</div>
+          {oilExpired.length === 0 && <div className="text-sm text-muted-foreground">Nenhum alerta.</div>}
+          {oilExpired.length > 0 && (
+            <div>
+              <div className="text-xs font-bold text-destructive mb-1">Vencidos ({oilExpired.length})</div>
+              <ul className="text-xs space-y-1">
+                {oilExpired.slice(0, 5).map((v) => (
+                  <li key={v.id}>
+                    <Link
+                      to="/admin/maintenance/$id"
+                      params={{ id: "new" }}
+                      search={{ vehicle: v.id, reason: `Troca de óleo vencida — KM atual: ${v.mileage}, previsto: ${v.oil_change_due_km}` } as never}
+                      className="flex justify-between hover:text-primary hover:underline"
+                    >
+                      <span className="truncate">{v.plate}</span>
+                      <span className="text-destructive">+{(v.mileage! - v.oil_change_due_km!).toLocaleString("pt-BR")} km</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Link to="/admin/maintenance/$id" params={{ id: "new" }} className="text-xs text-primary mt-3 inline-block">Abrir OS →</Link>
         </Card>
 
         <Card className="p-4">

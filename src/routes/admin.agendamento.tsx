@@ -31,6 +31,7 @@ type Schedule = {
   id: string; vehicle_id: string; vehicle_plate: string; vehicle_model: string | null;
   type: "reserva" | "servico"; title: string; notes: string | null;
   start_date: string; end_date: string;
+  start_time: string | null; end_time: string | null;
   assigned_user_id: string | null; assigned_user_name: string | null;
   created_by: string;
 };
@@ -39,13 +40,19 @@ type Driver  = { id: string; full_name: string | null };
 
 type FormState = {
   vehicle_id: string; type: "reserva" | "servico"; title: string;
-  notes: string; start_date: string; end_date: string; assigned_user_id: string;
+  notes: string; start_date: string; end_date: string;
+  start_time: string; end_time: string; assigned_user_id: string;
 };
 
 const EMPTY_FORM: FormState = {
   vehicle_id: "", type: "reserva", title: "", notes: "",
-  start_date: "", end_date: "", assigned_user_id: "",
+  start_date: "", end_date: "", start_time: "", end_time: "", assigned_user_id: "",
 };
+
+// "08:00:00" (Postgres) → "08:00" (<input type="time">)
+function toInputTime(t: string | null): string {
+  return t ? t.slice(0, 5) : "";
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TYPE_STYLE = {
@@ -60,7 +67,9 @@ function toIsoDate(d: Date) {
 
 function schedulesOnDay(schedules: Schedule[], day: Date): Schedule[] {
   const iso = toIsoDate(day);
-  return schedules.filter((s) => s.start_date <= iso && s.end_date >= iso);
+  return schedules
+    .filter((s) => s.start_date <= iso && s.end_date >= iso)
+    .sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
@@ -144,6 +153,8 @@ function AgendamentoPage() {
       notes:            s.notes ?? "",
       start_date:       s.start_date,
       end_date:         s.end_date,
+      start_time:       toInputTime(s.start_time),
+      end_time:         toInputTime(s.end_time),
       assigned_user_id: s.assigned_user_id ?? "",
     });
     setFormOpen(true);
@@ -159,6 +170,8 @@ function AgendamentoPage() {
     if (!form.title.trim()) { toast.error("Título obrigatório."); return; }
     if (!form.start_date || !form.end_date) { toast.error("Datas obrigatórias."); return; }
     if (form.end_date < form.start_date) { toast.error("Data de fim não pode ser anterior ao início."); return; }
+    if (!!form.start_time !== !!form.end_time) { toast.error("Informe hora de início e fim, ou deixe ambas em branco."); return; }
+    if (form.start_time && form.end_time && form.end_time <= form.start_time) { toast.error("Hora de fim deve ser posterior à hora de início."); return; }
     setSaving(true);
     try {
       const payload = {
@@ -168,6 +181,8 @@ function AgendamentoPage() {
         notes:            form.notes.trim() || undefined,
         start_date:       form.start_date,
         end_date:         form.end_date,
+        start_time:       form.start_time || null,
+        end_time:         form.end_time || null,
         assigned_user_id: form.assigned_user_id || null,
       };
       if (editId) {
@@ -197,15 +212,15 @@ function AgendamentoPage() {
     }
   };
 
-  // ── Access guard ──
-  if (authLoading) return null;
-  if (!canRead && !isAdmin) return <Navigate to="/home" />;
-
   // ── Sheet events for selected day ──
   const sheetSchedules = useMemo(
     () => (sheetDay ? schedulesOnDay(schedules, sheetDay) : []),
     [sheetDay, schedules],
   );
+
+  // ── Access guard ──
+  if (authLoading) return null;
+  if (!canRead && !isAdmin) return <Navigate to="/home" />;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-5xl mx-auto">
@@ -273,7 +288,7 @@ function AgendamentoPage() {
                       key={s.id}
                       className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium leading-tight ${TYPE_STYLE[s.type]}`}
                     >
-                      {s.vehicle_plate} · {s.title}
+                      {s.start_time && <>{toInputTime(s.start_time)} · </>}{s.vehicle_plate} · {s.title}
                     </div>
                   ))}
                   {daySchedules.length > 2 && (
@@ -323,6 +338,9 @@ function AgendamentoPage() {
                         {s.vehicle_model && <span className="text-[11px] opacity-70">{s.vehicle_model}</span>}
                       </div>
                       <p className="text-sm font-semibold mt-0.5">{s.title}</p>
+                      {s.start_time && s.end_time && (
+                        <p className="text-[11px] font-medium opacity-80">{toInputTime(s.start_time)} – {toInputTime(s.end_time)}</p>
+                      )}
                       {s.assigned_user_name && (
                         <p className="text-[11px] opacity-70">Motorista: {s.assigned_user_name}</p>
                       )}
@@ -421,6 +439,20 @@ function AgendamentoPage() {
                 <Input id="ag-end" type="date" value={form.end_date} min={form.start_date}
                   onChange={(e) => setF("end_date", e.target.value)} />
               </div>
+            </div>
+
+            {/* Times (optional — leave blank for all-day) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Horário (opcional — deixe em branco para o dia inteiro)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <Input id="ag-start-time" type="time" value={form.start_time}
+                  onChange={(e) => setF("start_time", e.target.value)} />
+                <Input id="ag-end-time" type="time" value={form.end_time}
+                  onChange={(e) => setF("end_time", e.target.value)} />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Assim dá para agendar, ex: 08:00–12:00 com uma pessoa e 13:00–17:00 com outra, no mesmo dia e veículo.
+              </p>
             </div>
 
             {/* Assigned user (for reserva) */}

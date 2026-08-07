@@ -37,3 +37,6 @@ dist-ssr
 .env.local
 .env.production
 .vercel
+
+# Claude Code local overrides (personal, not shared)
+.claude/settings.local.json

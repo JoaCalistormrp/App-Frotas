@@ -16,8 +16,10 @@ import { useAuth } from "@/lib/auth";
 import { FINAL_STATUSES, STATUS_OPTIONS, statusLabel, statusTone, type MaintenanceStatus } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/admin/maintenance/$id")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    checklist: typeof s.checklist === "string" ? s.checklist : null,
+  validateSearch: (s: Record<string, unknown>): { checklist?: string; vehicle?: string; reason?: string } => ({
+    checklist: typeof s.checklist === "string" ? s.checklist : undefined,
+    vehicle: typeof s.vehicle === "string" ? s.vehicle : undefined,
+    reason: typeof s.reason === "string" ? s.reason : undefined,
   }),
   component: OrderForm,
 });
@@ -45,7 +47,7 @@ async function fetchAllPhotos(orderId: string, checklistId: string | null) {
   if (pData && pData.length > 0) {
     const { data: signedUrls } = await supabase.storage
       .from("maintenance-photos")
-      .createSignedUrls(pData.map((r) => r.storage_path), 3600);
+      .createSignedUrls(pData.map((r) => r.storage_path).filter((p): p is string => !!p), 3600);
     const urlMap = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl ?? ""]));
     list = [...list, ...pData.map((r) => ({
       id: r.id, category: r.category, storage_path: r.storage_path, url: urlMap.get(r.storage_path) ?? "",
@@ -174,7 +176,7 @@ function AttachmentsPanel({ photos, onUpload, busy }: { photos: Array<any>, onUp
 
 function OrderForm() {
   const { id } = useParams({ from: "/admin/maintenance/$id" });
-  const { checklist: fromChecklistId } = Route.useSearch();
+  const { checklist: fromChecklistId, vehicle: fromVehicleId, reason: fromReason } = Route.useSearch();
   const nav = useNavigate();
   const { user, isAdmin, isMaster } = useAuth();
   const isNew = id === "new";
@@ -229,13 +231,47 @@ function OrderForm() {
     ]);
     setVehicles((vs ?? []) as Array<{ id: string; plate: string }>);
     setDrivers((ds ?? []) as Array<{ id: string; full_name: string | null }>);
-    
+
+    if (isNew && fromChecklistId) {
+      const { data: cl } = await supabase.from("checklists").select("vehicle_id, driver_id, odometer_start").eq("id", fromChecklistId).maybeSingle();
+      if (cl) {
+        const [{ data: veh }, { data: resps }] = await Promise.all([
+          cl.vehicle_id ? supabase.from("vehicles").select("model, base").eq("id", cl.vehicle_id).maybeSingle() : Promise.resolve({ data: null }),
+          (supabase as any).from("checklist_responses").select("observation, checklist_items(name)").eq("checklist_id", fromChecklistId).eq("status", "NAO_OK"),
+        ]);
+        const failureText = ((resps ?? []) as any[])
+          .map((r) => `• ${r.checklist_items?.name ?? "Item"}${r.observation ? `: ${r.observation}` : ""}`)
+          .join("\n");
+        setOrder((prev) => ({
+          ...prev,
+          vehicle_id: cl.vehicle_id ?? prev.vehicle_id,
+          driver_id: cl.driver_id ?? prev.driver_id,
+          km_atual: cl.odometer_start ?? prev.km_atual,
+          mod_carro: (veh as { model?: string } | null)?.model ?? prev.mod_carro,
+          base_code: (veh as { base?: string } | null)?.base ?? prev.base_code,
+          failure_description: failureText || prev.failure_description,
+        }));
+      }
+    }
+
+    if (isNew && !fromChecklistId && fromVehicleId) {
+      const { data: veh } = await supabase.from("vehicles").select("model, base, mileage").eq("id", fromVehicleId).maybeSingle();
+      setOrder((prev) => ({
+        ...prev,
+        vehicle_id: fromVehicleId,
+        km_atual: veh?.mileage ?? prev.km_atual,
+        mod_carro: veh?.model ?? prev.mod_carro,
+        base_code: veh?.base ?? prev.base_code,
+        failure_description: fromReason ?? prev.failure_description,
+      }));
+    }
+
     if (!isNew) {
       const { data, error } = await supabase.from("maintenance_orders").select("*").eq("id", id).maybeSingle();
       if (error) { toast.error("Erro ao carregar ordem: " + error.message); return; }
-      if (data) { 
-        setOrder({ ...(data as unknown as Order), denial_reason: (data as any).denial_reason ?? null }); 
-        setOrderNumber(data.order_number); 
+      if (data) {
+        setOrder({ ...(data as unknown as Order), denial_reason: (data as any).denial_reason ?? null });
+        setOrderNumber(data.order_number);
         setSavedStatus((data as any).status as MaintenanceStatus ?? "pendente");
         setItemsList((data.items_replaced as string ?? "").split(",").map((s: string) => s.trim()).filter(Boolean));
 
@@ -243,7 +279,7 @@ function OrderForm() {
         setPhotos(loadedPhotos);
       }
     }
-  })(); }, [id, isNew]);
+  })(); }, [id, isNew, fromChecklistId, fromVehicleId, fromReason]);
 
   const uploadBudget = async (file: File) => {
     if (isNew) { toast.error("Salve a OS primeiro antes de anexar arquivos."); setShowBudgetModal(false); return; }
