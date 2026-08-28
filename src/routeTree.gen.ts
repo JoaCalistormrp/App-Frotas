@@ -9,54 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as MotoristaRouteImport } from './routes/motorista'
-import { Route as MechanicRouteImport } from './routes/mechanic'
-import { Route as LicitacaoRouteImport } from './routes/licitacao'
-import { Route as HomeRouteImport } from './routes/home'
-import { Route as FinanceiroRouteImport } from './routes/financeiro'
-import { Route as DownloadRouteImport } from './routes/download'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as DownloadRouteImport } from './routes/download'
+import { Route as FinanceiroRouteImport } from './routes/financeiro'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as LicitacaoRouteImport } from './routes/licitacao'
+import { Route as MechanicRouteImport } from './routes/mechanic'
+import { Route as MotoristaRouteImport } from './routes/motorista'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as AdminVehiclesRouteImport } from './routes/admin.vehicles'
-import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
-import { Route as AdminTeamRouteImport } from './routes/admin.team'
-import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance'
-import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
-import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
-import { Route as AdminChecklistRouteImport } from './routes/admin.checklist'
 import { Route as AdminAgendamentoRouteImport } from './routes/admin.agendamento'
-import { Route as AdminMaintenanceTrashRouteImport } from './routes/admin.maintenance.trash'
+import { Route as AdminChecklistRouteImport } from './routes/admin.checklist'
+import { Route as AdminChecklistsRouteImport } from './routes/admin.checklists'
+import { Route as AdminDriversRouteImport } from './routes/admin.drivers'
+import { Route as AdminMaintenanceRouteImport } from './routes/admin.maintenance'
+import { Route as AdminTeamRouteImport } from './routes/admin.team'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
+import { Route as AdminVehiclesRouteImport } from './routes/admin.vehicles'
 import { Route as AdminMaintenanceIdRouteImport } from './routes/admin.maintenance.$id'
+import { Route as AdminMaintenanceTrashRouteImport } from './routes/admin.maintenance.trash'
 
-const MotoristaRoute = MotoristaRouteImport.update({
-  id: '/motorista',
-  path: '/motorista',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MechanicRoute = MechanicRouteImport.update({
-  id: '/mechanic',
-  path: '/mechanic',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LicitacaoRoute = LicitacaoRouteImport.update({
-  id: '/licitacao',
-  path: '/licitacao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FinanceiroRoute = FinanceiroRouteImport.update({
-  id: '/financeiro',
-  path: '/financeiro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DownloadRoute = DownloadRouteImport.update({
-  id: '/download',
-  path: '/download',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -64,9 +39,34 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceiroRoute = FinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LicitacaoRoute = LicitacaoRouteImport.update({
+  id: '/licitacao',
+  path: '/licitacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MechanicRoute = MechanicRouteImport.update({
+  id: '/mechanic',
+  path: '/mechanic',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MotoristaRoute = MotoristaRouteImport.update({
+  id: '/motorista',
+  path: '/motorista',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -74,34 +74,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminVehiclesRoute = AdminVehiclesRouteImport.update({
-  id: '/vehicles',
-  path: '/vehicles',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminTeamRoute = AdminTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminMaintenanceRoute = AdminMaintenanceRouteImport.update({
-  id: '/maintenance',
-  path: '/maintenance',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminDriversRoute = AdminDriversRouteImport.update({
-  id: '/drivers',
-  path: '/drivers',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminChecklistsRoute = AdminChecklistsRouteImport.update({
-  id: '/checklists',
-  path: '/checklists',
+const AdminAgendamentoRoute = AdminAgendamentoRouteImport.update({
+  id: '/agendamento',
+  path: '/agendamento',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminChecklistRoute = AdminChecklistRouteImport.update({
@@ -109,19 +84,44 @@ const AdminChecklistRoute = AdminChecklistRouteImport.update({
   path: '/checklist',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAgendamentoRoute = AdminAgendamentoRouteImport.update({
-  id: '/agendamento',
-  path: '/agendamento',
+const AdminChecklistsRoute = AdminChecklistsRouteImport.update({
+  id: '/checklists',
+  path: '/checklists',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminMaintenanceTrashRoute = AdminMaintenanceTrashRouteImport.update({
-  id: '/trash',
-  path: '/trash',
-  getParentRoute: () => AdminMaintenanceRoute,
+const AdminDriversRoute = AdminDriversRouteImport.update({
+  id: '/drivers',
+  path: '/drivers',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMaintenanceRoute = AdminMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTeamRoute = AdminTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVehiclesRoute = AdminVehiclesRouteImport.update({
+  id: '/vehicles',
+  path: '/vehicles',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminMaintenanceIdRoute = AdminMaintenanceIdRouteImport.update({
   id: '/$id',
   path: '/$id',
+  getParentRoute: () => AdminMaintenanceRoute,
+} as any)
+const AdminMaintenanceTrashRoute = AdminMaintenanceTrashRouteImport.update({
+  id: '/trash',
+  path: '/trash',
   getParentRoute: () => AdminMaintenanceRoute,
 } as any)
 
@@ -266,46 +266,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/motorista': {
-      id: '/motorista'
-      path: '/motorista'
-      fullPath: '/motorista'
-      preLoaderRoute: typeof MotoristaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mechanic': {
-      id: '/mechanic'
-      path: '/mechanic'
-      fullPath: '/mechanic'
-      preLoaderRoute: typeof MechanicRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/licitacao': {
-      id: '/licitacao'
-      path: '/licitacao'
-      fullPath: '/licitacao'
-      preLoaderRoute: typeof LicitacaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/financeiro': {
-      id: '/financeiro'
-      path: '/financeiro'
-      fullPath: '/financeiro'
-      preLoaderRoute: typeof FinanceiroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/download': {
-      id: '/download'
-      path: '/download'
-      fullPath: '/download'
-      preLoaderRoute: typeof DownloadRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -315,11 +280,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/financeiro': {
+      id: '/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof FinanceiroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/licitacao': {
+      id: '/licitacao'
+      path: '/licitacao'
+      fullPath: '/licitacao'
+      preLoaderRoute: typeof LicitacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mechanic': {
+      id: '/mechanic'
+      path: '/mechanic'
+      fullPath: '/mechanic'
+      preLoaderRoute: typeof MechanicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/motorista': {
+      id: '/motorista'
+      path: '/motorista'
+      fullPath: '/motorista'
+      preLoaderRoute: typeof MotoristaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -329,46 +329,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/vehicles': {
-      id: '/admin/vehicles'
-      path: '/vehicles'
-      fullPath: '/admin/vehicles'
-      preLoaderRoute: typeof AdminVehiclesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/usuarios': {
-      id: '/admin/usuarios'
-      path: '/usuarios'
-      fullPath: '/admin/usuarios'
-      preLoaderRoute: typeof AdminUsuariosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/team': {
-      id: '/admin/team'
-      path: '/team'
-      fullPath: '/admin/team'
-      preLoaderRoute: typeof AdminTeamRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/maintenance': {
-      id: '/admin/maintenance'
-      path: '/maintenance'
-      fullPath: '/admin/maintenance'
-      preLoaderRoute: typeof AdminMaintenanceRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/drivers': {
-      id: '/admin/drivers'
-      path: '/drivers'
-      fullPath: '/admin/drivers'
-      preLoaderRoute: typeof AdminDriversRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/checklists': {
-      id: '/admin/checklists'
-      path: '/checklists'
-      fullPath: '/admin/checklists'
-      preLoaderRoute: typeof AdminChecklistsRouteImport
+    '/admin/agendamento': {
+      id: '/admin/agendamento'
+      path: '/agendamento'
+      fullPath: '/admin/agendamento'
+      preLoaderRoute: typeof AdminAgendamentoRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/checklist': {
@@ -378,25 +343,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChecklistRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/agendamento': {
-      id: '/admin/agendamento'
-      path: '/agendamento'
-      fullPath: '/admin/agendamento'
-      preLoaderRoute: typeof AdminAgendamentoRouteImport
+    '/admin/checklists': {
+      id: '/admin/checklists'
+      path: '/checklists'
+      fullPath: '/admin/checklists'
+      preLoaderRoute: typeof AdminChecklistsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/maintenance/trash': {
-      id: '/admin/maintenance/trash'
-      path: '/trash'
-      fullPath: '/admin/maintenance/trash'
-      preLoaderRoute: typeof AdminMaintenanceTrashRouteImport
-      parentRoute: typeof AdminMaintenanceRoute
+    '/admin/drivers': {
+      id: '/admin/drivers'
+      path: '/drivers'
+      fullPath: '/admin/drivers'
+      preLoaderRoute: typeof AdminDriversRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/maintenance': {
+      id: '/admin/maintenance'
+      path: '/maintenance'
+      fullPath: '/admin/maintenance'
+      preLoaderRoute: typeof AdminMaintenanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/team': {
+      id: '/admin/team'
+      path: '/team'
+      fullPath: '/admin/team'
+      preLoaderRoute: typeof AdminTeamRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/vehicles': {
+      id: '/admin/vehicles'
+      path: '/vehicles'
+      fullPath: '/admin/vehicles'
+      preLoaderRoute: typeof AdminVehiclesRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/admin/maintenance/$id': {
       id: '/admin/maintenance/$id'
       path: '/$id'
       fullPath: '/admin/maintenance/$id'
       preLoaderRoute: typeof AdminMaintenanceIdRouteImport
+      parentRoute: typeof AdminMaintenanceRoute
+    }
+    '/admin/maintenance/trash': {
+      id: '/admin/maintenance/trash'
+      path: '/trash'
+      fullPath: '/admin/maintenance/trash'
+      preLoaderRoute: typeof AdminMaintenanceTrashRouteImport
       parentRoute: typeof AdminMaintenanceRoute
     }
   }
