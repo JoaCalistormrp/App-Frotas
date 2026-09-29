@@ -50,6 +50,25 @@ export const queryOracleFinancial = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!access) throw new Error("Acesso não autorizado ao módulo financeiro.");
 
+    // ── Rate limiting: máx. RATE_LIMIT_MAX consultas por RATE_LIMIT_WINDOW_MIN por utilizador ──
+    const RATE_LIMIT_WINDOW_MIN = 5;
+    const RATE_LIMIT_MAX = 20;
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MIN * 60_000).toISOString();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count } = await (supabaseAdmin as any)
+      .from("auth_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("identifier", context.userId)
+      .eq("action", "oracle_query")
+      .gte("created_at", windowStart);
+    if ((count ?? 0) >= RATE_LIMIT_MAX) {
+      throw new Error("Muitas consultas em pouco tempo. Aguarde alguns minutos e tente novamente.");
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin as any)
+      .from("auth_attempts")
+      .insert({ identifier: context.userId, action: "oracle_query", success: true });
+
     // Dynamic import so CF Workers fail gracefully (oracledb is Node.js-only)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let oracledb: any;
