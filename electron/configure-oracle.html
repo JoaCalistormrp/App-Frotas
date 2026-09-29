@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Configurar credenciais</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: #f4f5f7; color: #1a1a2e;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; margin: 22px 0 2px; }
+  p.hint { font-size: 12px; color: #6b7280; margin: 0 0 16px; }
+  label { display: block; font-size: 12px; font-weight: 600; margin: 12px 0 4px; }
+  input {
+    width: 100%; height: 34px; padding: 0 10px;
+    border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;
+  }
+  input:focus { outline: 2px solid #1E293B; outline-offset: 1px; }
+  .optional { font-weight: 400; color: #9ca3af; }
+  button {
+    margin-top: 22px; width: 100%; height: 40px;
+    background: #1E293B; color: #fff; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  #msg { margin-top: 12px; font-size: 12px; min-height: 16px; }
+  #msg.ok { color: #15803d; }
+  #msg.err { color: #b91c1c; }
+</style>
+</head>
+<body>
+  <h1>Credenciais — Checklist Frota</h1>
+  <p class="hint">Guardadas cifradas nesta máquina (DPAPI do Windows). Só esta conta Windows consegue lê-las depois.</p>
+
+  <form id="f">
+    <h2>Oracle (ERP financeiro)</h2>
+    <label for="oracleConnectString">Host / connect string</label>
+    <input id="oracleConnectString" placeholder="dbconnect.exemplo.com:4221/xepdb1" autocomplete="off" required />
+
+    <label for="oracleUser">Utilizador</label>
+    <input id="oracleUser" autocomplete="off" required />
+
+    <label for="oraclePassword">Password</label>
+    <input id="oraclePassword" type="password" autocomplete="new-password" required />
+
+    <h2>Supabase</h2>
+    <label for="supabaseServiceRoleKey">Chave service_role <span class="optional">(opcional — sem isso, funções administrativas como usuários e licitações ficam indisponíveis neste computador)</span></label>
+    <input id="supabaseServiceRoleKey" type="password" autocomplete="new-password" />
+
+    <button type="submit" id="btn">Guardar</button>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+    const form = document.getElementById("f");
+    const btn  = document.getElementById("btn");
+    const msg  = document.getElementById("msg");
+
+    // Pré-preenche o que já estiver configurado (não mostra a password/chave de volta por segurança).
+    window.appSetup.load().then((existing) => {
+      if (!existing) return;
+      if (existing.oracle) {
+        document.getElementById("oracleConnectString").value = existing.oracle.connectString || "";
+        document.getElementById("oracleUser").value = existing.oracle.user || "";
+      }
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "";
+      msg.className = "";
+      btn.disabled = true;
+      btn.textContent = "A gravar…";
+
+      const creds = {
+        oracleConnectString: document.getElementById("oracleConnectString").value.trim(),
+        oracleUser:          document.getElementById("oracleUser").value.trim(),
+        oraclePassword:      document.getElementById("oraclePassword").value,
+        supabaseServiceRoleKey: document.getElementById("supabaseServiceRoleKey").value.trim() || undefined,
+      };
+
+      try {
+        const result = await window.appSetup.save(creds);
+        if (result.ok) {
+          msg.textContent = "✓ Credenciais gravadas com sucesso. Pode fechar esta janela.";
+          msg.className = "ok";
+          btn.textContent = "Guardado";
+        } else {
+          msg.textContent = result.error || "Erro ao gravar.";
+          msg.className = "err";
+          btn.disabled = false;
+          btn.textContent = "Guardar";
+        }
+      } catch (err) {
+        msg.textContent = "Erro inesperado: " + (err && err.message ? err.message : String(err));
+        msg.className = "err";
+        btn.disabled = false;
+        btn.textContent = "Guardar";
+      }
+    });
+  </script>
+</body>
+</html>

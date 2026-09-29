@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { app, BrowserWindow, shell, Menu, dialog } = require("electron");
-const path      = require("path");
-const net        = require("net");
-const fs         = require("fs");
+const { app, BrowserWindow, shell, Menu, dialog, safeStorage, ipcMain } = require("electron");
+const path = require("path");
+const net  = require("net");
+const fs   = require("fs");
 
 const logFile = path.join(app.getPath("userData"), "electron-debug.log");
 const log = (...args) => {
@@ -13,46 +13,146 @@ const log = (...args) => {
 
 const PORT  = 3131;
 const isDev = !app.isPackaged;
+const isConfigureCredentials = process.argv.includes("--configure-oracle") || process.argv.includes("--configure-credentials");
 
-let serverInstance = null;
+// Ficheiro cifrado com os segredos que só podem viver nesta máquina/conta
+// Windows (via safeStorage/DPAPI): credenciais Oracle + a chave service_role
+// do Supabase. Fora da pasta da app — nunca vai para o instalador nem para o git.
+const CREDENTIALS_PATH = path.join(app.getPath("userData"), "app-credentials.enc");
+
+// Valores públicos (URL + chave publishable do Supabase) — não são segredo,
+// já vão embutidos no bundle do site também. Gerados em build time por
+// scripts/post-build.cjs a partir do .env, para a app arrancar sem precisar
+// de configuração nenhuma; só Oracle e a chave service_role exigem o passo
+// `--configure-credentials`.
+function loadPublicEnv() {
+  // Ficheiro pequeno, lido direto de dentro do asar — Electron suporta isso nativamente.
+  const p = path.join(__dirname, "public-env.generated.json");
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+// ─── Credenciais cifradas (Oracle + Supabase service_role) ─────────────────
+function saveCredentials({ oracleConnectString, oracleUser, oraclePassword, supabaseServiceRoleKey }) {
+  if (!oracleConnectString || !oracleUser || !oraclePassword) {
+    return { ok: false, error: "Preencha host, utilizador e password do Oracle." };
+  }
+  if (!safeStorage.isEncryptionAvailable()) {
+    return { ok: false, error: "A criptografia nativa do sistema (DPAPI) não está disponível nesta conta Windows." };
+  }
+  const payload = JSON.stringify({
+    oracle: { connectString: oracleConnectString, user: oracleUser, password: oraclePassword },
+    supabaseServiceRoleKey: supabaseServiceRoleKey || null,
+  });
+  const encrypted = safeStorage.encryptString(payload);
+  fs.mkdirSync(path.dirname(CREDENTIALS_PATH), { recursive: true });
+  fs.writeFileSync(CREDENTIALS_PATH, encrypted);
+  return { ok: true, path: CREDENTIALS_PATH };
+}
+
+function loadCredentials() {
+  if (!fs.existsSync(CREDENTIALS_PATH)) return null;
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const decrypted = safeStorage.decryptString(fs.readFileSync(CREDENTIALS_PATH));
+    return JSON.parse(decrypted);
+  } catch (e) {
+    log("[credentials] Falha ao ler/decifrar:", e.message);
+    return null;
+  }
+}
+
+// ─── Modo de configuração: `"Checklist Frota.exe" --configure-credentials` ─
+// Corre uma vez por máquina (ou sempre que as credenciais precisarem de ser
+// trocadas). Abre uma janela mínima e independente — não é a app normal — e
+// grava tudo cifrado com o DPAPI do Windows. O handler IPC só existe
+// enquanto esta janela existe, nunca durante o uso normal da app.
+function configureCredentials() {
+  return new Promise((resolve) => {
+    const existing = loadCredentials();
+    ipcMain.handle("save-app-credentials", (_event, creds) => saveCredentials(creds));
+    ipcMain.handle("load-app-credentials", () => existing);
+
+    const win = new BrowserWindow({
+      width: 480,
+      height: 620,
+      resizable: false,
+      title: "Configurar credenciais — Checklist Frota",
+      icon: path.join(__dirname, "../public/icons/icon.ico"),
+      webPreferences: {
+        preload: path.join(__dirname, "configure-oracle-preload.cjs"),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+    Menu.setApplicationMenu(null);
+    win.loadFile(path.join(__dirname, "configure-oracle.html"));
+    win.on("closed", () => {
+      ipcMain.removeHandler("save-app-credentials");
+      ipcMain.removeHandler("load-app-credentials");
+      resolve();
+    });
+  });
+}
 
 // Função auxiliar para mapear corretamente o caminho de ficheiros para URLs do V8/import()
 function pathToFileURL(p) {
-  let pathName = path.resolve(p).replace(/\\/g, '/');
-  if (pathName[0] !== '/') pathName = '/' + pathName;
-  return new URL('file://' + pathName);
+  let pathName = path.resolve(p).replace(/\\/g, "/");
+  if (pathName[0] !== "/") pathName = "/" + pathName;
+  return new URL("file://" + pathName);
 }
 
-// ─── Servidor Integrado (Substitui o spawn do processo filho) ──────────
-async function startPreviewServer() {
-  log("=== startPreviewServer (Integrado no Main Process) ===");
+function resolveUnpacked(p) {
+  if (p.includes("app.asar") && !p.includes("app.asar.unpacked")) {
+    return p.replace("app.asar", "app.asar.unpacked");
+  }
+  return p;
+}
+
+// ─── Servidor integrado ──────────────────────────────────────────────────
+// dist/server/server.js (Cloudflare Workers) foi descontinuado em favor do
+// output padrão do preset "node" do Nitro (.output/server/index.mjs) — um
+// servidor Node autónomo de verdade, que já serve os estáticos (.output/public)
+// e roda o mesmo código de servidor (incl. Oracle, autenticado) usado no site.
+async function startServer() {
+  log("=== startServer ===");
 
   const appDir = app.getAppPath();
-  let serverScript = path.join(appDir, "electron", "node-server.mjs");
-  
-  // Como descompactamos via asarUnpack, em produção o script estará na pasta .unpacked
-  if (serverScript.includes("app.asar") && !serverScript.includes("app.asar.unpacked")) {
-    serverScript = serverScript.replace("app.asar", "app.asar.unpacked");
-  }
-  
-  log("serverScript:", serverScript, "existe:", fs.existsSync(serverScript));
-
-  if (!fs.existsSync(serverScript)) {
-    throw new Error(`Servidor não encontrado: ${serverScript}`);
+  const serverEntry = resolveUnpacked(path.join(appDir, ".output", "server", "index.mjs"));
+  log("serverEntry:", serverEntry, "existe:", fs.existsSync(serverEntry));
+  if (!fs.existsSync(serverEntry)) {
+    throw new Error(`Servidor não encontrado: ${serverEntry}`);
   }
 
-  // Importação dinâmica do ES Module dentro do CommonJS
-  const { startIntegratedServer } = await import(pathToFileURL(serverScript).href);
+  // Credenciais (Oracle + Supabase service_role) — decifradas em memória, nunca em disco.
+  const creds = loadCredentials();
+  if (creds?.oracle) {
+    process.env.ORACLE_DB_USER     = creds.oracle.user;
+    process.env.ORACLE_DB_PASSWORD = creds.oracle.password;
+    process.env.ORACLE_DB_HOST     = creds.oracle.connectString;
+  } else {
+    log("Credenciais Oracle não configuradas — corra --configure-credentials para habilitar o módulo financeiro.");
+  }
+  if (creds?.supabaseServiceRoleKey) {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = creds.supabaseServiceRoleKey;
+  } else {
+    log("Chave service_role do Supabase não configurada — funções administrativas (usuários, licitações) ficarão indisponíveis.");
+  }
 
-  // Inicia o servidor HTTP nativo passando as propriedades necessárias
-  serverInstance = await startIntegratedServer({
-    appDir: appDir,
-    port: PORT,
-    logCallback: log
-  });
+  // Valores públicos (não secretos) do Supabase, gerados em build time.
+  const publicEnv = loadPublicEnv();
+  if (publicEnv.SUPABASE_URL) process.env.SUPABASE_URL = publicEnv.SUPABASE_URL;
+  if (publicEnv.SUPABASE_PUBLISHABLE_KEY) process.env.SUPABASE_PUBLISHABLE_KEY = publicEnv.SUPABASE_PUBLISHABLE_KEY;
 
-  // Validação de segurança extra para garantir que a porta foi vinculada com sucesso
-  await pollPort(PORT, 5000);
+  process.env.PORT = String(PORT);
+
+  // O entrypoint do Nitro arranca-se sozinho ao ser importado (lê PORT do env).
+  await import(pathToFileURL(serverEntry).href);
+
+  await pollPort(PORT, 8000);
 }
 
 function pollPort(port, timeoutMs) {
@@ -108,9 +208,6 @@ function createWindow() {
     win.webContents.openDevTools({ mode: "detach" });
   } else {
     win.loadURL(`http://127.0.0.1:${PORT}`);
-    
-    // 👇 LINHA ADICIONADA: Força o DevTools a abrir em Produção 👇
-    win.webContents.openDevTools({ mode: "detach" });
   }
 
   return win;
@@ -122,6 +219,12 @@ if (!isDev) {
 }
 
 app.whenReady().then(async () => {
+  if (isConfigureCredentials) {
+    await configureCredentials();
+    app.quit();
+    return;
+  }
+
   log("=== App ready ===");
   log("isPackaged:", app.isPackaged, "isDev:", isDev);
   log("appPath:", app.getAppPath());
@@ -143,7 +246,7 @@ app.whenReady().then(async () => {
 
     try {
       log("A iniciar servidor integrado...");
-      await startPreviewServer();
+      await startServer();
       log("Servidor pronto na porta", PORT);
       splash.close();
       const win = createWindow();
@@ -167,10 +270,5 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  // Encerra o servidor de forma limpa da memória RAM ao fechar as janelas do app
-  if (serverInstance && typeof serverInstance.close === "function") {
-    serverInstance.close();
-    serverInstance = null;
-  }
   if (process.platform !== "darwin") app.quit();
 });

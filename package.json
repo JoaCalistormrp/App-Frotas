@@ -15,8 +15,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "electron:dev": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron electron/main.cjs",
-    "electron:build": "vite build && electron-builder --config electron-builder.json",
-    "electron:win": "vite build && node scripts/post-build.cjs && electron-builder --win --config electron-builder.json",
+    "electron:configure-credentials": "electron electron/main.cjs --configure-credentials",
+    "electron:build": "cross-env ELECTRON_BUILD=1 vite build && node scripts/post-build.cjs && electron-builder --config electron-builder.json",
+    "electron:win": "cross-env ELECTRON_BUILD=1 vite build && node scripts/post-build.cjs && electron-builder --win --config electron-builder.json",
     "android:open": "npx cap open android",
     "android:sync": "npx cap sync android"
   },

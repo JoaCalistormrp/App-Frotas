@@ -10,7 +10,11 @@ export default defineConfig(async ({ command }) => {
   const extraPlugins: any[] = [];
   if (command === "build") {
     const { nitro } = await import("nitro/vite");
-    extraPlugins.push(nitro({ preset: "vercel" }));
+    // O build do site (Vercel) usa o preset "vercel" (padrão). O build do
+    // Electron (`npm run electron:build`/`electron:win`) define ELECTRON_BUILD=1
+    // para gerar um servidor Node autónomo em vez disso — não afeta o deploy Vercel.
+    const preset = process.env.ELECTRON_BUILD ? "node" : "vercel";
+    extraPlugins.push(nitro({ preset }));
   }
 
   return {

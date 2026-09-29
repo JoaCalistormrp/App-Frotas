@@ -40,3 +40,9 @@ dist-ssr
 
 # Claude Code local overrides (personal, not shared)
 .claude/settings.local.json
+
+# Gerado em build time por scripts/post-build.cjs a partir do .env local
+electron/public-env.generated.json
+
+# Build output do electron-builder (instalador .exe, pode ser grande)
+dist-electron/

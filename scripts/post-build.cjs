@@ -1,53 +1,42 @@
-// Gera os ficheiros de config + bundle standalone que o Miniflare consegue correr
+// Gera electron/public-env.generated.json com os valores PÚBLICOS do Supabase
+// (URL + chave publishable — os mesmos que já vão embutidos no bundle do
+// cliente, não são segredo) para a app Electron arrancar sem precisar de
+// nenhuma configuração local. Segredos reais (Oracle, chave service_role)
+// ficam de fora daqui — esses vivem cifrados, gravados via
+// `"Checklist Frota.exe" --configure-credentials` (ver electron/main.cjs).
 const fs   = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 
-async function main() {
-  // 1. Bundle server.js + todas as dependências num único ficheiro ESM standalone
-  // O server.js produzido pelo vite build tem imports externos (h3-v2, etc.)
-  // que o Miniflare não resolve — o esbuild inline tudo num único ficheiro.
-  const esbuild = require(path.join(root, "node_modules", "esbuild"));
-  const serverEntry  = path.join(root, "dist", "server", "server.js");
-  const serverBundle = path.join(root, "dist", "server", "server.bundled.js");
-
-  await esbuild.build({
-    entryPoints: [serverEntry],
-    outfile: serverBundle,
-    bundle: true,
-    format: "esm",
-    platform: "browser",
-    target: "chrome112",
-    external: ["node:*", "oracledb", "__STATIC_CONTENT_MANIFEST"],
-    absWorkingDir: path.join(root, "dist", "server"),
-    logLevel: "warning",
-  });
-  console.log("✓ dist/server/server.bundled.js gerado");
-
-  // 2. dist/server/wrangler.json — aponta para o bundle standalone
-  const wranglerJson = {
-    name: "tanstack-start-app",
-    compatibility_date: "2025-09-24",
-    compatibility_flags: ["nodejs_compat"],
-    main: "server.bundled.js",
-  };
-  const wranglerJsonPath = path.join(root, "dist", "server", "wrangler.json");
-  fs.writeFileSync(wranglerJsonPath, JSON.stringify(wranglerJson, null, 2));
-  console.log("✓ dist/server/wrangler.json gerado");
-
-  // 3. .wrangler/deploy/config.json — aponta para o wrangler.json acima
-  const deployDir = path.join(root, ".wrangler", "deploy");
-  fs.mkdirSync(deployDir, { recursive: true });
-  const deployConfig = {
-    configPath: "../../dist/server/wrangler.json",
-    auxiliaryWorkers: [],
-  };
-  fs.writeFileSync(
-    path.join(deployDir, "config.json"),
-    JSON.stringify(deployConfig, null, 2)
-  );
-  console.log("✓ .wrangler/deploy/config.json gerado");
+function loadDotEnv(file) {
+  const out = {};
+  if (!fs.existsSync(file)) return out;
+  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+    const i = line.indexOf("=");
+    if (i === -1 || line.trim().startsWith("#")) continue;
+    const key = line.slice(0, i).trim();
+    const value = line.slice(i + 1).trim().replace(/^"|"$/g, "");
+    out[key] = value;
+  }
+  return out;
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+function main() {
+  const env = { ...loadDotEnv(path.join(root, ".env")), ...loadDotEnv(path.join(root, ".env.local")), ...process.env };
+
+  const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
+  const publishableKey = env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!url || !publishableKey) {
+    console.error("✗ SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY não encontrados em .env — o build do Electron não vai conseguir falar com o Supabase.");
+    process.exit(1);
+  }
+
+  const out = { SUPABASE_URL: url, SUPABASE_PUBLISHABLE_KEY: publishableKey };
+  const outPath = path.join(root, "electron", "public-env.generated.json");
+  fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
+  console.log(`✓ electron/public-env.generated.json gerado (${url})`);
+}
+
+main();
