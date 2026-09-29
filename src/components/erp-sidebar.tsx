@@ -54,7 +54,7 @@ const NAV: NavModule[] = [
 
 export function ERPSidebar() {
   const navigate = useNavigate();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { signOut, user, isAdmin, isDriver, isMechanic, modules } = useAuth();
@@ -86,7 +86,10 @@ export function ERPSidebar() {
     if (active) setExpanded(active);
   }, [path]);
 
-  const go = (url: string) => navigate({ to: url as Parameters<typeof navigate>[0]["to"] });
+  const go = (url: string) => {
+    navigate({ to: url as Parameters<typeof navigate>[0]["to"] });
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <Sidebar collapsible="icon">
