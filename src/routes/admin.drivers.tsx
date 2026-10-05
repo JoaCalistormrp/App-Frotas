@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lerCnh } from "@/lib/cnh-import";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -159,6 +160,22 @@ function DriverModal({ driver, onClose, onSaved }: { driver: Driver; onClose: ()
     Array.isArray(driver.cnh_renewal_history) ? driver.cnh_renewal_history : [],
   );
   const [busy, setBusy] = useState(false);
+  const [lendoCnh, setLendoCnh] = useState(false);
+
+  const importarCnh = async (f: File) => {
+    setLendoCnh(true);
+    try {
+      const r = await lerCnh(f);
+      if (r.nome) setFullName(r.nome);
+      if (r.cpf) setCpf(r.cpf);
+      if (r.registro) setCnh(r.registro);
+      if (r.validade) setExpires(r.validade);
+      if (r.foto) setPhotoFile(r.foto);
+      setFile(f);
+      toast.success("CNH lida. Confira os dados e escolha a categoria.");
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setLendoCnh(false); }
+  };
 
   useEffect(() => { (async () => {
     if (driver.cnh_file_url) {
@@ -224,6 +241,13 @@ function DriverModal({ driver, onClose, onSaved }: { driver: Driver; onClose: ()
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-lg">Ficha do colaborador</h3>
           <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
+        </div>
+        <div className="space-y-1 pb-3 border-b border-border">
+          <Label className="text-xs flex items-center gap-1"><Upload className="size-3" />Importar CNH (PDF ou imagem)</Label>
+          <Input type="file" accept="application/pdf,image/*" disabled={lendoCnh} onChange={(e) => { const f = e.target.files?.[0]; if (f) importarCnh(f); }} />
+          <p className="text-[10px] text-muted-foreground">
+            {lendoCnh ? "Lendo a CNH…" : "Preenche nome, CPF, Nº CNH, validade e foto. A categoria deve ser escolhida manualmente."}
+          </p>
         </div>
         <div className="flex items-start gap-3 pb-3 border-b border-border">
           <div className="w-24 h-32 bg-muted rounded overflow-hidden grid place-items-center shrink-0">
