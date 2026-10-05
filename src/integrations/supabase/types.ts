@@ -1058,7 +1058,7 @@ export type Database = {
       next_order_number: { Args: { _base: string }; Returns: string }
     }
     Enums: {
-      app_role: "admin" | "driver" | "viewer" | "mechanic" | "master"
+      app_role: "admin" | "driver" | "viewer" | "mechanic" | "master" | "electrician"
       checklist_status: "in_progress" | "completed"
       driver_function:
         | "diretor"
@@ -1244,7 +1244,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      app_role: ["admin", "driver", "viewer", "mechanic", "master"],
+      app_role: ["admin", "driver", "viewer", "mechanic", "master", "electrician"],
       checklist_status: ["in_progress", "completed"],
       driver_function: [
         "diretor",

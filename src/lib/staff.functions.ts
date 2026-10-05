@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const RoleSchema = z.enum(["admin", "viewer", "mechanic", "master", "driver"]);
+const RoleSchema = z.enum(["admin", "viewer", "mechanic", "master", "driver", "electrician"]);
 
 const KNOWN_MODULE_SLUGS = [
   "frotas",
@@ -55,7 +55,7 @@ export const listStaff = createServerFn({ method: "POST" })
     const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, role")
-      .in("role", ["admin", "viewer", "mechanic", "master", "driver"]);
+      .in("role", ["admin", "viewer", "mechanic", "master", "driver", "electrician"]);
     if (error) throw new Error(error.message);
 
     const ids = Array.from(new Set((roles ?? []).map((r) => r.user_id)));

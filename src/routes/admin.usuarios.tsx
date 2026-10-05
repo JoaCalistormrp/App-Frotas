@@ -101,6 +101,7 @@ const ROLES = [
   { value: "viewer",   label: "Consulta (somente leitura)" },
   { value: "driver",   label: "Motorista" },
   { value: "mechanic", label: "Mecânico (SMI/SMV)" },
+  { value: "electrician", label: "Eletricista (SMI/SMV)" },
   { value: "admin",    label: "Administrador" },
   { value: "master",   label: "Master (admin + aprovações)" },
 ];
@@ -110,6 +111,7 @@ const ROLE_STYLE: Record<string, string> = {
   master:   "bg-violet-500/10 text-violet-600",
   viewer:   "bg-amber-500/10 text-amber-600",
   mechanic: "bg-blue-500/10 text-blue-600",
+  electrician: "bg-orange-500/10 text-orange-600",
   driver:   "bg-emerald-500/10 text-emerald-600",
 };
 
