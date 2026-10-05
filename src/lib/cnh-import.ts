@@ -67,31 +67,29 @@ async function frontalDoPdf(file: File): Promise<HTMLCanvasElement> {
       .sort((a, b) => b.y - a.y)[0];
     if (!frente) throw new Error("Não foi encontrada a frente da CNH neste PDF.");
 
-    const imagem = await new Promise<PdfImagem | null>((resolve) => page.objs.get(frente.nome, resolve));
-    if (imagem?.bitmap) return bitmapParaCanvas(imagem.bitmap);
-    if (!imagem?.data) throw new Error("Não foi possível extrair a imagem da CNH.");
-    return pixelsParaCanvas({ width: imagem.width, height: imagem.height, data: imagem.data });
+    const escala = 4;
+    const vp = page.getViewport({ scale: escala });
+    const [ax, ay] = vp.convertToViewportPoint(frente.x, frente.y);
+    const [bx, by] = vp.convertToViewportPoint(frente.x + frente.w, frente.y + frente.h);
+    const pagina = document.createElement("canvas");
+    pagina.width = Math.round(vp.width);
+    pagina.height = Math.round(vp.height);
+    await page.render({ canvas: pagina, canvasContext: pagina.getContext("2d")!, viewport: vp }).promise;
+
+    const frenteCanvas = document.createElement("canvas");
+    const w = Math.round(Math.abs(bx - ax));
+    const h = Math.round(Math.abs(by - ay));
+    frenteCanvas.width = w;
+    frenteCanvas.height = h;
+    frenteCanvas.getContext("2d")!.drawImage(pagina, Math.min(ax, bx), Math.min(ay, by), w, h, 0, 0, w, h);
+    page.cleanup();
+    return frenteCanvas;
   } finally {
     await tarefa.destroy();
   }
 }
 
 type Colocada = { nome: string; w: number; h: number; x: number; y: number };
-
-type PdfImagem = {
-  width: number;
-  height: number;
-  data?: Uint8ClampedArray | Uint8Array | null;
-  bitmap?: ImageBitmap | null;
-};
-
-function bitmapParaCanvas(bitmap: ImageBitmap): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
-  return canvas;
-}
 
 function imagensColocadas(
   ops: { fnArray: number[]; argsArray: unknown[][] },
@@ -128,30 +126,12 @@ async function imagemParaCanvas(file: File): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
-function pixelsParaCanvas(img: { width: number; height: number; data: Uint8ClampedArray | Uint8Array }): HTMLCanvasElement {
-  const { width, height, data } = img;
-  const canais = data.length / (width * height);
-  if (canais !== 1 && canais !== 3 && canais !== 4) throw new Error("Formato de imagem da CNH não suportado.");
-  const rgba = new Uint8ClampedArray(width * height * 4);
-  for (let p = 0, q = 0; p < width * height; p++, q += 4) {
-    const base = p * canais;
-    rgba[q] = data[base];
-    rgba[q + 1] = canais === 1 ? data[base] : data[base + 1];
-    rgba[q + 2] = canais === 1 ? data[base] : data[base + 2];
-    rgba[q + 3] = canais === 4 ? data[base + 3] : 255;
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  canvas.getContext("2d")!.putImageData(new ImageData(rgba, width, height), 0, 0);
-  return canvas;
-}
-
 async function recortar(
   origem: HTMLCanvasElement,
   box: Box,
   { escala = 1, binarizar = false, margem = 0, tipo = "image/png" }: { escala?: number; binarizar?: boolean; margem?: number; tipo?: string } = {},
 ): Promise<Blob | null> {
+  if (!origem.width || !origem.height) throw new Error("A imagem da CNH está vazia.");
   const sw = Math.round(box.w * origem.width);
   const sh = Math.round(box.h * origem.height);
   const canvas = document.createElement("canvas");
