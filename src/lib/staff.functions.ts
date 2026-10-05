@@ -36,6 +36,22 @@ function formatPhoneForWaha(raw: string): string {
   return "55" + cleaned;
 }
 
+async function isMaster(userId: string) {
+  const { data } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "master")
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+async function assertCanGrantMaster(callerId: string, targetRole: string, currentRole: string | null) {
+  if (targetRole !== "master" || currentRole === "master") return;
+  if (!(await isMaster(callerId))) throw new Error("Apenas master pode conceder acesso master.");
+}
+
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -141,6 +157,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
+    await assertCanGrantMaster(context.userId, data.role, null);
 
     const cpfDigits = data.cpf.replace(/\D/g, "");
     const phoneFormatted = formatPhoneForWaha(data.phone ?? "");
@@ -202,6 +219,14 @@ export const updateStaffUser = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
+
+    const { data: currentRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user_id)
+      .limit(1)
+      .maybeSingle();
+    await assertCanGrantMaster(context.userId, data.role, currentRow?.role ?? null);
 
     const cpfDigits = data.cpf.replace(/\D/g, "");
     const phoneFormatted = formatPhoneForWaha(data.phone ?? "");

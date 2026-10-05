@@ -334,7 +334,8 @@ function ModulesSection({
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 function UsuariosPage() {
-  const { isAdmin, isViewer, modules, user, loading: authLoading, reloadModules } = useAuth();
+  const { isAdmin, isMaster, isViewer, modules, user, loading: authLoading, reloadModules } = useAuth();
+  const roleOptions = isMaster ? [...ROLES, { value: "master", label: "Master (admin + aprovações)" }] : ROLES;
   const listFn    = useServerFn(listStaff);
   const createFn  = useServerFn(createStaffUser);
   const updateFn  = useServerFn(updateStaffUser);
@@ -589,7 +590,7 @@ function UsuariosPage() {
                   }}
                   className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"
                 >
-                  {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </div>
               <div className="flex items-end pb-1">
@@ -671,10 +672,10 @@ function UsuariosPage() {
                         }}
                         className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"
                       >
-                        {!ROLES.some((r) => r.value === editForm.role) && (
+                        {!roleOptions.some((r) => r.value === editForm.role) && (
                           <option value={editForm.role} disabled>{LEGACY_ROLE_LABELS[editForm.role] ?? editForm.role}</option>
                         )}
-                        {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                        {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                       </select>
                     </div>
                     <label className="flex items-center gap-2 text-sm cursor-pointer select-none pt-1">
