@@ -98,20 +98,23 @@ const MODULES_CONFIG: Array<{
 ];
 
 const ROLES = [
-  { value: "viewer",   label: "Consulta (somente leitura)" },
-  { value: "driver",   label: "Motorista" },
-  { value: "mechanic", label: "Mecânico (SMI/SMV)" },
-  { value: "electrician", label: "Eletricista (SMI/SMV)" },
-  { value: "admin",    label: "Administrador" },
-  { value: "master",   label: "Master (admin + aprovações)" },
+  { value: "viewer", label: "Consulta (somente leitura)" },
+  { value: "geral",  label: "Geral" },
 ];
+
+const LEGACY_ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  master: "Master (admin + aprovações)",
+  mechanic: "Mecânico (SMI/SMV)",
+  driver: "Motorista",
+};
 
 const ROLE_STYLE: Record<string, string> = {
   admin:    "bg-primary/10 text-primary",
   master:   "bg-violet-500/10 text-violet-600",
   viewer:   "bg-amber-500/10 text-amber-600",
   mechanic: "bg-blue-500/10 text-blue-600",
-  electrician: "bg-orange-500/10 text-orange-600",
+  geral:    "bg-orange-500/10 text-orange-600",
   driver:   "bg-emerald-500/10 text-emerald-600",
 };
 
@@ -132,7 +135,7 @@ function toggleArr(arr: string[], val: string) {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const label = ROLES.find((r) => r.value === role)?.label ?? role;
+  const label = ROLES.find((r) => r.value === role)?.label ?? LEGACY_ROLE_LABELS[role] ?? role;
   return (
     <span className={`text-[10px] uppercase px-2 py-0.5 rounded font-medium ${ROLE_STYLE[role] ?? "bg-muted text-muted-foreground"}`}>
       <ShieldCheck className="size-3 inline mr-0.5" />{label}
@@ -668,6 +671,9 @@ function UsuariosPage() {
                         }}
                         className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm"
                       >
+                        {!ROLES.some((r) => r.value === editForm.role) && (
+                          <option value={editForm.role} disabled>{LEGACY_ROLE_LABELS[editForm.role] ?? editForm.role}</option>
+                        )}
                         {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                       </select>
                     </div>

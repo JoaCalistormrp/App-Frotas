@@ -22,6 +22,7 @@ const ROLE_LABEL: Record<string, { label: string; icon: typeof ShieldCheck; tone
   viewer: { label: "Consulta", icon: Eye, tone: "bg-amber-500/10 text-amber-600" },
   mechanic: { label: "Mecânico", icon: Wrench, tone: "bg-blue-500/10 text-blue-600" },
   driver: { label: "Motorista", icon: ShieldCheck, tone: "bg-emerald-500/10 text-emerald-600" },
+  geral: { label: "Geral", icon: ShieldCheck, tone: "bg-orange-500/10 text-orange-600" },
 };
 
 function TeamPage() {
@@ -34,7 +35,7 @@ function TeamPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ full_name: "", email: "", cpf: "", role: "viewer" as "admin" | "viewer" | "mechanic" | "master" | "driver", driver_active: false });
+  const [form, setForm] = useState({ full_name: "", email: "", cpf: "", role: "viewer" as "viewer" | "geral", driver_active: false });
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -124,10 +125,7 @@ function TeamPage() {
               <Label>Perfil</Label>
               <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as never })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
                 <option value="viewer">Consulta (somente leitura)</option>
-                <option value="driver">Motorista</option>
-                <option value="mechanic">Mecânico (SMI/SMV)</option>
-                <option value="admin">Administrador</option>
-                <option value="master">Master (admin + aprovação SMV/SMI)</option>
+                <option value="geral">Geral</option>
               </select>
             </div>
             <div className="flex items-center gap-2 pt-1">
