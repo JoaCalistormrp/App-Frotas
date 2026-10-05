@@ -67,16 +67,31 @@ async function frontalDoPdf(file: File): Promise<HTMLCanvasElement> {
       .sort((a, b) => b.y - a.y)[0];
     if (!frente) throw new Error("Não foi encontrada a frente da CNH neste PDF.");
 
-    const imagem = await new Promise<{ width: number; height: number; data: Uint8ClampedArray | Uint8Array }>((resolve) =>
-      page.objs.get(frente.nome, resolve),
-    );
-    return pixelsParaCanvas(imagem);
+    const imagem = await new Promise<PdfImagem | null>((resolve) => page.objs.get(frente.nome, resolve));
+    if (imagem?.bitmap) return bitmapParaCanvas(imagem.bitmap);
+    if (!imagem?.data) throw new Error("Não foi possível extrair a imagem da CNH.");
+    return pixelsParaCanvas({ width: imagem.width, height: imagem.height, data: imagem.data });
   } finally {
     await tarefa.destroy();
   }
 }
 
 type Colocada = { nome: string; w: number; h: number; x: number; y: number };
+
+type PdfImagem = {
+  width: number;
+  height: number;
+  data?: Uint8ClampedArray | Uint8Array | null;
+  bitmap?: ImageBitmap | null;
+};
+
+function bitmapParaCanvas(bitmap: ImageBitmap): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
+  return canvas;
+}
 
 function imagensColocadas(
   ops: { fnArray: number[]; argsArray: unknown[][] },
