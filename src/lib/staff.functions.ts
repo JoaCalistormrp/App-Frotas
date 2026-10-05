@@ -79,10 +79,10 @@ export const listStaff = createServerFn({ method: "POST" })
 
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, cpf, driver_active, phone")
+      .select("id, full_name, cpf, driver_active, electrician_active, phone")
       .in("id", ids);
     const profMap = new Map(
-      (profiles ?? []).map((p) => [p.id, { full_name: p.full_name as string | null, cpf: p.cpf as string | null, driver_active: p.driver_active as boolean, phone: p.phone as string | null }])
+      (profiles ?? []).map((p) => [p.id, { full_name: p.full_name as string | null, cpf: p.cpf as string | null, driver_active: p.driver_active as boolean, electrician_active: p.electrician_active as boolean, phone: p.phone as string | null }])
     );
 
     let authUsers: Array<{ id: string; email?: string }> = [];
@@ -108,7 +108,7 @@ export const listStaff = createServerFn({ method: "POST" })
       modulesMap.set(m.user_id, arr);
     }
 
-    const byUser = new Map<string, { id: string; email: string; full_name: string | null; cpf: string | null; phone: string | null; roles: string[]; driver_active: boolean; modules: string[] }>();
+    const byUser = new Map<string, { id: string; email: string; full_name: string | null; cpf: string | null; phone: string | null; roles: string[]; driver_active: boolean; electrician_active: boolean; modules: string[] }>();
     for (const r of roles ?? []) {
       const prof = profMap.get(r.user_id);
       const cur = byUser.get(r.user_id) ?? {
@@ -119,6 +119,7 @@ export const listStaff = createServerFn({ method: "POST" })
         phone: prof?.phone ?? null,
         roles: [],
         driver_active: prof?.driver_active ?? false,
+        electrician_active: prof?.electrician_active ?? false,
         modules: modulesMap.get(r.user_id) ?? [],
       };
       cur.roles.push(r.role);
@@ -152,6 +153,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
       phone: z.string().max(20).optional().default(""),
       role: RoleSchema,
       driver_active: z.boolean(),
+      electrician_active: z.boolean().default(false),
       modules: z.array(ModuleSlugSchema),
     }).parse(input),
   )
@@ -187,7 +189,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const uid = created.user!.id;
 
-    await supabaseAdmin.from("profiles").upsert({ id: uid, full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active, phone: phoneFormatted || null });
+    await supabaseAdmin.from("profiles").upsert({ id: uid, full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active, electrician_active: data.electrician_active, phone: phoneFormatted || null });
     await supabaseAdmin.from("user_roles").delete().eq("user_id", uid).eq("role", "driver");
     const { error: rErr } = await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: data.role });
     if (rErr) throw new Error(rErr.message);
@@ -214,6 +216,7 @@ export const updateStaffUser = createServerFn({ method: "POST" })
       phone: z.string().max(20).optional().default(""),
       role: RoleSchema,
       driver_active: z.boolean(),
+      electrician_active: z.boolean().default(false),
       modules: z.array(ModuleSlugSchema),
     }).parse(input),
   )
@@ -242,7 +245,7 @@ export const updateStaffUser = createServerFn({ method: "POST" })
       if (existing) throw new Error(`O CPF ${data.cpf} já está em uso por outro utilizador.`);
     }
 
-    await supabaseAdmin.from("profiles").update({ full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active, phone: phoneFormatted || null }).eq("id", data.user_id);
+    await supabaseAdmin.from("profiles").update({ full_name: data.full_name, cpf: cpfDigits ? data.cpf : null, driver_active: data.driver_active, electrician_active: data.electrician_active, phone: phoneFormatted || null }).eq("id", data.user_id);
 
     // Replace role (single role per user)
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);

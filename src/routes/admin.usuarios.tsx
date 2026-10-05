@@ -121,13 +121,13 @@ const ROLE_STYLE: Record<string, string> = {
 // ── Types ──────────────────────────────────────────────────────────────────────
 type StaffUser = {
   id: string; email: string; full_name: string | null; cpf: string | null; phone: string | null;
-  roles: string[]; driver_active: boolean; modules: string[];
+  roles: string[]; driver_active: boolean; electrician_active: boolean; modules: string[];
 };
 
-type NewForm = { full_name: string; email: string; cpf: string; phone: string; role: string; driver_active: boolean; modules: string[] };
-type EditForm = { full_name: string; cpf: string; phone: string; role: string; driver_active: boolean; modules: string[] };
+type NewForm = { full_name: string; email: string; cpf: string; phone: string; role: string; driver_active: boolean; electrician_active: boolean; modules: string[] };
+type EditForm = { full_name: string; cpf: string; phone: string; role: string; driver_active: boolean; electrician_active: boolean; modules: string[] };
 
-const EMPTY_NEW: NewForm = { full_name: "", email: "", cpf: "", phone: "", role: "viewer", driver_active: false, modules: [] };
+const EMPTY_NEW: NewForm = { full_name: "", email: "", cpf: "", phone: "", role: "viewer", driver_active: false, electrician_active: false, modules: [] };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function toggleArr(arr: string[], val: string) {
@@ -411,7 +411,7 @@ function UsuariosPage() {
   // ── Edit user ─────────────────────────────────────────────────────────────
   const openEdit = (s: StaffUser) => {
     setEditUser(s);
-    setEditForm({ full_name: s.full_name ?? "", cpf: s.cpf ?? "", phone: s.phone ?? "", role: s.roles[0] ?? "viewer", driver_active: s.driver_active, modules: [...s.modules] });
+    setEditForm({ full_name: s.full_name ?? "", cpf: s.cpf ?? "", phone: s.phone ?? "", role: s.roles[0] ?? "viewer", driver_active: s.driver_active, electrician_active: s.electrician_active, modules: [...s.modules] });
   };
   const closeEdit = () => { setEditUser(null); setEditForm(null); };
 
@@ -524,6 +524,11 @@ function UsuariosPage() {
                     Motorista ativo
                   </span>
                 )}
+                {s.electrician_active && (
+                  <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-700 font-medium">
+                    Eletricista ativo
+                  </span>
+                )}
               </div>
               <div className="text-xs text-muted-foreground">{s.email}{s.cpf ? ` · CPF ${s.cpf}` : ""}{s.phone ? ` · Tel. ${s.phone}` : ""}</div>
               {s.modules.length > 0 && (
@@ -597,6 +602,12 @@ function UsuariosPage() {
                 <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                   <input type="checkbox" checked={newForm.driver_active} onChange={(e) => setNewForm({ ...newForm, driver_active: e.target.checked })} className="h-4 w-4 rounded border-border" />
                   Motorista ativo
+                </label>
+              </div>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="checkbox" checked={newForm.electrician_active} onChange={(e) => setNewForm({ ...newForm, electrician_active: e.target.checked })} className="h-4 w-4 rounded border-border" />
+                  Eletricista ativo
                 </label>
               </div>
             </div>
@@ -681,6 +692,10 @@ function UsuariosPage() {
                     <label className="flex items-center gap-2 text-sm cursor-pointer select-none pt-1">
                       <input type="checkbox" checked={editForm.driver_active} onChange={(e) => setEditForm({ ...editForm, driver_active: e.target.checked })} className="h-4 w-4 rounded border-border" />
                       Motorista ativo
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none pt-1">
+                      <input type="checkbox" checked={editForm.electrician_active} onChange={(e) => setEditForm({ ...editForm, electrician_active: e.target.checked })} className="h-4 w-4 rounded border-border" />
+                      Eletricista ativo
                     </label>
                   </div>
                 </section>

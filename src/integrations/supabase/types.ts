@@ -776,6 +776,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           driver_active: boolean
+          electrician_active: boolean
           full_name: string | null
           id: string
           phone: string | null
@@ -795,6 +796,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           driver_active?: boolean
+          electrician_active?: boolean
           full_name?: string | null
           id?: string
           phone?: string | null
@@ -814,6 +816,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           driver_active?: boolean
+          electrician_active?: boolean
           full_name?: string | null
           id?: string
           phone?: string | null
