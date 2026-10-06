@@ -141,8 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isViewer = roles.includes("viewer");
   const isMechanic = roles.includes("mechanic");
-  const isGeral = roles.includes("geral");
-  const isDriver = !!user && !isAdmin && !isMaster && !isViewer && !isMechanic && !isGeral;
+  const isDriver = !!user && !isAdmin && !isMaster && !isViewer && !isMechanic;
   return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
 }
 
