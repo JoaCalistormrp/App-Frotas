@@ -15,11 +15,18 @@ const FROTAS_SCREEN_GUARDS: Array<[path: string, slug: string]> = [
   ["/admin/checklist",         "frotas.checklist_new"],
   ["/admin/vehicles",          "frotas.veiculos"],
   ["/admin/drivers",           "frotas.motoristas"],
+  ["/admin/agendamento",       "frotas.agendamento"],
   ["/admin",                   "frotas.dashboard"],
 ];
 
 function hasFrotasAccess(modules: string[]) {
   return modules.some((m) => m === "frotas" || m.startsWith("frotas."));
+}
+
+// Aceita o próprio slug ou qualquer sub-permissão dele (ex: "frotas.agendamento.readonly"
+// para quem só tem "visualizar"), igual ao que a barra lateral já faz em canSeePage.
+function hasSlug(modules: string[], slug: string) {
+  return modules.includes(slug) || modules.some((m) => m.startsWith(slug + "."));
 }
 
 function AdminLayout() {
@@ -50,9 +57,9 @@ function AdminLayout() {
       );
       if (matched) {
         const [, requiredSlug] = matched;
-        if (!modules.includes(requiredSlug)) {
+        if (!hasSlug(modules, requiredSlug)) {
           // Redirect to first screen the user has access to
-          const first = FROTAS_SCREEN_GUARDS.find(([, slug]) => modules.includes(slug));
+          const first = FROTAS_SCREEN_GUARDS.find(([, slug]) => hasSlug(modules, slug));
           return <Navigate to={first ? first[0] : "/home"} />;
         }
       }
