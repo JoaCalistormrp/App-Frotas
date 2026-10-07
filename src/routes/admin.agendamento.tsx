@@ -59,6 +59,10 @@ const TYPE_STYLE = {
   reserva: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   servico: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
 };
+const TYPE_DOT = {
+  reserva: "bg-blue-500",
+  servico: "bg-amber-500",
+};
 const TYPE_LABEL = { reserva: "Reserva", servico: "Serviço" };
 
 function toIsoDate(d: Date) {
@@ -282,7 +286,17 @@ function AgendamentoPage() {
                 <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
                   {format(day, "d")}
                 </span>
-                <div className="flex flex-col gap-0.5 overflow-hidden">
+                {/* Mobile: pontos coloridos (o texto não cabe na célula) */}
+                <div className="flex flex-wrap gap-1 sm:hidden">
+                  {daySchedules.slice(0, 5).map((s) => (
+                    <span key={s.id} className={`inline-block size-1.5 rounded-full ${TYPE_DOT[s.type]}`} />
+                  ))}
+                  {daySchedules.length > 5 && (
+                    <span className="text-[9px] text-muted-foreground leading-none">+{daySchedules.length - 5}</span>
+                  )}
+                </div>
+                {/* Desktop/tablet: resumo em texto */}
+                <div className="hidden sm:flex sm:flex-col gap-0.5 overflow-hidden">
                   {daySchedules.slice(0, 2).map((s) => (
                     <div
                       key={s.id}
