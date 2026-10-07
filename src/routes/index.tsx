@@ -71,13 +71,13 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user, loading, isMechanic, isAdmin, isViewer, isDriver } = useAuth();
+  const { user, loading, isMechanic, isAdmin, isViewer, isFieldDriver } = useAuth();
 
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <AuthScreen />;
 
   if (isAdmin || isViewer) return <Navigate to="/home" />;
-  if (isMechanic || isDriver) return <Navigate to="/motorista" />;
+  if (isMechanic || isFieldDriver) return <Navigate to="/motorista" />;
 
   return <Navigate to="/home" />;
 }

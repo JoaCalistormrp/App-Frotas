@@ -11,6 +11,7 @@ type AuthCtx = {
   isViewer: boolean;
   isMechanic: boolean;
   isDriver: boolean;
+  isFieldDriver: boolean;
   roles: string[];
   modules: string[];
   loading: boolean;
@@ -142,7 +143,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isViewer = roles.includes("viewer");
   const isMechanic = roles.includes("mechanic");
   const isDriver = !!user && !isAdmin && !isMaster && !isViewer && !isMechanic;
-  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
+  // "Geral" cobre desde motoristas de campo até staff com acesso amplo de Frotas.
+  // Só quem não tem nenhum módulo além de checklist é tratado como motorista puro
+  // (abre direto no Checklist Diário); os demais usam o Início normal.
+  const isFieldDriver = isDriver && !hasBroaderFrotasAccess(modules);
+  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, isFieldDriver, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
+}
+
+const BROAD_ACCESS_SLUGS = [
+  "frotas", "frotas.dashboard", "frotas.manutencao", "frotas.veiculos",
+  "frotas.motoristas", "frotas.lixeira", "financeiro", "utilizadores", "licitacao",
+];
+
+function hasBroaderFrotasAccess(modules: string[]) {
+  return modules.some((m) => BROAD_ACCESS_SLUGS.includes(m) || m.startsWith("frotas.agendamento"));
 }
 
 export const useAuth = () => {

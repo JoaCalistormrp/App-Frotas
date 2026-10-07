@@ -101,7 +101,7 @@ function NotificationToggle({ userId }: { userId: string }) {
 }
 
 function ERPHome() {
-  const { user, isAdmin, isViewer, isMechanic, isDriver, modules, loading } = useAuth();
+  const { user, isAdmin, isViewer, isMechanic, isDriver, isFieldDriver, modules, loading } = useAuth();
 
   if (loading) {
     return (
@@ -111,8 +111,9 @@ function ERPHome() {
     );
   }
   if (!user) return <Navigate to="/" />;
-  if (isMechanic || isDriver) return <Navigate to="/motorista" />;
-  if (!isAdmin && !isViewer) return <Navigate to="/" />;
+  if (isMechanic || isFieldDriver) return <Navigate to="/motorista" />;
+  // Geral com acesso amplo de Frotas (não só checklist) vê o Início normalmente
+  if (!isAdmin && !isViewer && !isDriver) return <Navigate to="/" />;
 
   const visibleModules = ALL_MODULES.filter((m) =>
     m.slug === "frotas"

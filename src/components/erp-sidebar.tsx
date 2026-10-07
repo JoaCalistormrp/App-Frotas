@@ -57,7 +57,7 @@ export function ERPSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { signOut, user, isAdmin, isDriver, isMechanic, modules } = useAuth();
+  const { signOut, user, isAdmin, isFieldDriver, isMechanic, modules } = useAuth();
 
   const isActive = (url: string, exact: boolean) =>
     exact ? path === url : path === url || path.startsWith(url + "/");
@@ -168,7 +168,7 @@ export function ERPSidebar() {
                 );
               })}
 
-              {(isDriver || isMechanic) && modules.some((s) => s === "frotas" || s.startsWith("frotas.")) && (
+              {(isFieldDriver || isMechanic) && modules.some((s) => s === "frotas" || s.startsWith("frotas.")) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={path === "/motorista"}

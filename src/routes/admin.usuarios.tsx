@@ -44,9 +44,10 @@ const MODULES_CONFIG: Array<{
     description: "Checklists, Manutenção, Veículos, Motoristas",
     screens: [
       { slug: "frotas.dashboard",     label: "Dashboard" },
+      { slug: "frotas.checklists",    label: "Checklists" },
       {
-        slug: "frotas.checklists",
-        label: "Checklists",
+        slug: "frotas.checklist_new",
+        label: "Abrir Checklist",
         subscreens: [
           { slug: "frotas.checklists.pesados",        label: "Pesados" },
           { slug: "frotas.checklists.cesto_aereo",  label: "Cesto Aéreo" },
@@ -56,7 +57,6 @@ const MODULES_CONFIG: Array<{
           { slug: "frotas.checklists.administrativo", label: "Administrativo" },
         ],
       },
-      { slug: "frotas.checklist_new", label: "Abrir Checklist" },
       { slug: "frotas.manutencao",    label: "Manutenção" },
       { slug: "frotas.veiculos",      label: "Veículos" },
       { slug: "frotas.motoristas",    label: "Motoristas" },
