@@ -27,10 +27,13 @@ function AdminLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!user) return <Navigate to="/" />;
-  if (!isAdmin && !isViewer) return <Navigate to="/" />;
 
   // /admin/usuarios is ERP-level management — accessible without frotas module
   const isUsuarios = path.startsWith("/admin/usuarios");
+
+  // Admin/viewer entram sempre; os demais perfis precisam do módulo da área que estão a tentar abrir
+  const hasRouteAccess = isUsuarios ? modules.includes("utilizadores") : hasFrotasAccess(modules);
+  if (!isAdmin && !isViewer && !hasRouteAccess) return <Navigate to="/" />;
 
   if (isUsuarios) {
     // Utilizadores is now its own module — requires explicit grant

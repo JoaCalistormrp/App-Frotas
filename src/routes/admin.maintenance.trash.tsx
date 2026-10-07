@@ -17,7 +17,8 @@ type DeletedOrder = {
 };
 
 function TrashPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isViewer, modules } = useAuth();
+  const canAccess = isAdmin || isViewer || modules.includes("frotas") || modules.includes("frotas.lixeira");
   const [orders, setOrders] = useState<DeletedOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +46,7 @@ function TrashPage() {
     setLoading(false);
   };
 
-  useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
+  useEffect(() => { if (canAccess) load(); }, [canAccess]);
 
   const restore = async (id: string, number: string) => {
     if (!confirm(`Deseja restaurar a OS ${number}? Ela voltará para o painel principal.`)) return;
@@ -66,7 +67,7 @@ function TrashPage() {
     load();
   };
 
-  if (!isAdmin) return <div className="p-10 text-center text-muted-foreground">Acesso negado.</div>;
+  if (!canAccess) return <div className="p-10 text-center text-muted-foreground">Acesso negado.</div>;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">

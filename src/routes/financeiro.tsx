@@ -169,11 +169,10 @@ function FilterPanel({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 function FinanceiroFrotas() {
-  const { user, isAdmin, isViewer, modules, loading } = useAuth();
+  const { user, modules, loading } = useAuth();
 
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground text-sm">Carregando…</div>;
   if (!user) return <Navigate to="/" />;
-  if (!isAdmin && !isViewer) return <Navigate to="/" />;
   if (!modules.includes("financeiro")) return <Navigate to="/home" />;
 
   return (

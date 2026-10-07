@@ -10,11 +10,13 @@ import { ArrowLeft, Truck, Wrench, Building2, Anchor, Construction, Loader2, Cli
 export const Route = createFileRoute("/admin/checklist")({ component: AdminChecklist });
 
 function AdminChecklist() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, isViewer, modules, loading } = useAuth();
 
   if (loading) return <div className="py-12 text-center text-muted-foreground text-sm">Carregando…</div>;
   if (!user) return <Navigate to="/" />;
-  if (!isAdmin) return <Navigate to="/home" />;
+  if (!isAdmin && !isViewer && !modules.includes("frotas") && !modules.includes("frotas.checklist_new")) {
+    return <Navigate to="/home" />;
+  }
 
   return <ChecklistContent />;
 }
