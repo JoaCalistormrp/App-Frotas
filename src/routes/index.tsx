@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench, Lock, ArrowRight, Smartphone, Search, SlidersHorizontal, X as XIcon2 } from "lucide-react";
+import { LogOut, Truck, CheckCircle2, XCircle, MinusCircle, AlertTriangle, ShieldCheck, User as UserIcon, Wrench, Lock, ArrowRight, Smartphone, Search, SlidersHorizontal, X as XIcon2, Plus } from "lucide-react";
 import { FileDown, FileSpreadsheet, Filter, Trash2, Camera, X as XIcon, Users, Bell, Upload, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -617,9 +617,12 @@ function AdminPanel({ onChange: _ }: { onChange: () => void }) {
   );
 }
 
+type DamageRow = { id: string; damage_type: string; location: string | null; description: string | null; photo_url: string | null };
+
 function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   const [data, setData] = useState<{ checklist: HistoryRow | null; responses: Array<{ status: string; observation: string | null; photo_url: string | null; checklist_items: { name: string; checklist_categories: { name: string } | null } | null }> }>({ checklist: null, responses: [] });
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [damages, setDamages] = useState<DamageRow[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -634,10 +637,17 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
       const { data: resp } = await supabase.from("checklist_responses")
         .select("status, observation, photo_url, checklist_items(name, checklist_categories(name))")
         .eq("checklist_id", id);
+      const { data: dmg } = await (supabase as any).from("checklist_damages")
+        .select("id, damage_type, location, description, photo_url")
+        .eq("checklist_id", id);
       const merged = ck ? ({ ...(ck as object), profiles: profile } as unknown as HistoryRow) : null;
       setData({ checklist: merged, responses: (resp ?? []) as never });
+      setDamages((dmg ?? []) as DamageRow[]);
       // signed urls for photos
-      const paths = (resp ?? []).map((r: { photo_url: string | null }) => r.photo_url).filter(Boolean) as string[];
+      const paths = [
+        ...((resp ?? []).map((r: { photo_url: string | null }) => r.photo_url).filter(Boolean) as string[]),
+        ...((dmg ?? []).map((d: DamageRow) => d.photo_url).filter(Boolean) as string[]),
+      ];
       if (paths.length) {
         const signed: Record<string, string> = {};
         await Promise.all(paths.map(async (p) => {
@@ -681,8 +691,25 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
       styles: { fontSize: 8 },
       headStyles: { fillColor: [30, 40, 80] },
     });
+    // Danos no veículo
+    if (damages.length) {
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 8,
+        head: [["Dano", "Local", "Descrição"]],
+        body: damages.map((d) => [
+          DAMAGE_TYPES.find((t) => t.value === d.damage_type)?.label ?? d.damage_type,
+          d.location ?? "",
+          d.description ?? "",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [150, 40, 30] },
+      });
+    }
     // Append photos page(s)
-    const photoResps = data.responses.filter((r) => r.photo_url);
+    const photoResps: Array<{ photo_url: string | null; label: string }> = [
+      ...data.responses.filter((r) => r.photo_url).map((r) => ({ photo_url: r.photo_url, label: `${r.checklist_items?.name ?? ""} — ${r.observation ?? ""}` })),
+      ...damages.filter((d) => d.photo_url).map((d) => ({ photo_url: d.photo_url, label: `Dano: ${DAMAGE_TYPES.find((t) => t.value === d.damage_type)?.label ?? d.damage_type}${d.location ? ` — ${d.location}` : ""}` })),
+    ];
     if (photoResps.length) {
       doc.addPage();
       await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${c.vehicles?.plate ?? ""}`);
@@ -694,9 +721,8 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
         if (!url) continue;
         try {
           const dataUrl = await urlToDataUrl(url);
-          const label = `${r.checklist_items?.name ?? ""} — ${r.observation ?? ""}`;
           if (y > pageH - 90) { doc.addPage(); await applyPdfBranding(doc, "Evidências fotográficas", `Checklist ${c.vehicles?.plate ?? ""}`); y = 36; }
-          doc.setFontSize(9); doc.text(label.slice(0, 100), 14, y);
+          doc.setFontSize(9); doc.text(r.label.slice(0, 100), 14, y);
           doc.addImage(dataUrl, "JPEG", 14, y + 3, 80, 60, undefined, "FAST");
           y += 72;
         } catch { /* skip broken */ }
@@ -738,6 +764,28 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
                 </div>
               ))}
             </div>
+            {damages.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-destructive flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5" /> Danos registados
+                </h4>
+                <div className="border border-border rounded-md divide-y divide-border text-sm">
+                  {damages.map((d) => (
+                    <div key={d.id} className="p-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium">{DAMAGE_TYPES.find((t) => t.value === d.damage_type)?.label ?? d.damage_type}{d.location ? ` — ${d.location}` : ""}</div>
+                        {d.description && <div className="text-xs text-muted-foreground">{d.description}</div>}
+                        {d.photo_url && photoUrls[d.photo_url] && (
+                          <a href={photoUrls[d.photo_url]} target="_blank" rel="noreferrer" className="inline-block mt-1">
+                            <img src={photoUrls[d.photo_url]} alt="Dano" className="h-20 w-20 object-cover rounded border border-border" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
         <Button variant="ghost" className="w-full" onClick={onClose}>Fechar</Button>
@@ -749,6 +797,14 @@ function ChecklistDetailModal({ id, onClose }: { id: string; onClose: () => void
 type Item = { id: string; name: string; category_id: string };
 type Category = { id: string; name: string; sort_order: number };
 type Resp = { status: "OK" | "NAO_OK" | "NA" | null; observation: string; photo: File | null; photoPreview: string | null };
+type DamageEntry = { id: string; type: string; location: string; description: string; photo: File | null; photoPreview: string | null };
+
+const DAMAGE_TYPES = [
+  { value: "amassado", label: "Amassado" },
+  { value: "risco",    label: "Risco / Arranhão" },
+  { value: "trinca",   label: "Trinca / Quebrado" },
+  { value: "outro",    label: "Outro" },
+];
 
 function compressImage(file: File, maxPx = 1280, quality = 0.75): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -787,6 +843,7 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
   const [odometer, setOdometer] = useState("");
   const [busy, setBusy] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [damages, setDamages] = useState<DamageEntry[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -844,6 +901,31 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
     }
   };
 
+  const addDamage = () =>
+    setDamages((d) => [...d, { id: crypto.randomUUID(), type: DAMAGE_TYPES[0].value, location: "", description: "", photo: null, photoPreview: null }]);
+  const removeDamage = (id: string) =>
+    setDamages((d) => {
+      const entry = d.find((x) => x.id === id);
+      if (entry?.photoPreview) URL.revokeObjectURL(entry.photoPreview);
+      return d.filter((x) => x.id !== id);
+    });
+  const updateDamage = (id: string, patch: Partial<DamageEntry>) =>
+    setDamages((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const setDamagePhoto = async (id: string, file: File | null) => {
+    if (!file) { updateDamage(id, { photo: null, photoPreview: null }); return; }
+    try {
+      const compressed = await compressImage(file);
+      const preview = URL.createObjectURL(compressed);
+      setDamages((d) => d.map((x) => {
+        if (x.id !== id) return x;
+        if (x.photoPreview) URL.revokeObjectURL(x.photoPreview);
+        return { ...x, photo: compressed, photoPreview: preview };
+      }));
+    } catch {
+      toast.error("Não foi possível processar a foto. Tente novamente.");
+    }
+  };
+
   const submit = async () => {
     if (!user || !templateId) return;
     const missing = items.filter((i) => !responses[i.id]?.status);
@@ -881,8 +963,30 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
       photo_url: photoPaths[i.id] || null,
     }));
     const { error: e2 } = await supabase.from("checklist_responses").insert(rows);
+    if (e2) { setBusy(false); return toast.error(e2.message); }
+
+    // Danos no veículo — etapa opcional, descarta entradas totalmente vazias
+    const filledDamages = damages.filter((d) => d.location.trim() || d.description.trim() || d.photo);
+    let damagePhotoFailures = 0;
+    for (const d of filledDamages) {
+      if (!d.photo) continue;
+      const { error: dpErr } = await supabase.storage
+        .from("checklist-photos")
+        .upload(`${ck.id}/damage-${d.id}.jpg`, d.photo, { upsert: true, contentType: "image/jpeg" });
+      if (dpErr) damagePhotoFailures++;
+    }
+    if (damagePhotoFailures > 0) toast.warning(`${damagePhotoFailures} foto(s) de dano não enviada(s). O checklist foi guardado.`);
+    if (filledDamages.length) {
+      const damageRows = filledDamages.map((d) => ({
+        id: d.id, checklist_id: ck.id, damage_type: d.type,
+        location: d.location.trim() || null, description: d.description.trim() || null,
+        photo_url: d.photo ? `${ck.id}/damage-${d.id}.jpg` : null,
+      }));
+      const { error: e3 } = await (supabase as any).from("checklist_damages").insert(damageRows);
+      if (e3) toast.warning(`Checklist guardado, mas os danos não foram registados: ${e3.message}`);
+    }
+
     setBusy(false);
-    if (e2) return toast.error(e2.message);
     toast.success("Checklist enviado!");
     if (onSubmitted) onSubmitted();
     else onClose();
@@ -973,6 +1077,84 @@ export function ChecklistRunner({ vehicleId, checklistType, onClose, onSubmitted
             </Card>
           </section>
         ))}
+
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <AlertTriangle className="size-3.5" /> Dano no Veículo
+            </h3>
+            <span className="text-[11px] text-muted-foreground">Opcional</span>
+          </div>
+          <Card className="divide-y divide-border">
+            {damages.length === 0 && (
+              <div className="p-3 text-xs text-muted-foreground">
+                Nenhum dano registado. Adicione se houver amassados, riscos ou outro dano a reportar.
+              </div>
+            )}
+            {damages.map((d) => (
+              <div key={d.id} className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={d.type}
+                    onChange={(e) => updateDamage(d.id, { type: e.target.value })}
+                    className="flex-1 h-9 rounded-md bg-input border border-border px-2 text-sm"
+                  >
+                    {DAMAGE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeDamage(d.id)}
+                    className="text-muted-foreground hover:text-destructive shrink-0 p-1.5"
+                    title="Remover"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+                <Input
+                  placeholder="Local (ex: para-choque dianteiro, porta traseira)"
+                  value={d.location}
+                  onChange={(e) => updateDamage(d.id, { location: e.target.value })}
+                />
+                <Textarea
+                  placeholder="Descrição (opcional)"
+                  value={d.description}
+                  onChange={(e) => updateDamage(d.id, { description: e.target.value })}
+                  rows={2}
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-xs font-medium cursor-pointer hover:bg-muted">
+                    <Camera className="size-4" />
+                    {d.photo ? "Trocar foto" : "Tirar foto do dano"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => setDamagePhoto(d.id, e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  {d.photo && (
+                    <button
+                      type="button"
+                      onClick={() => setDamagePhoto(d.id, null)}
+                      className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                    >
+                      <XIcon className="size-3" />Remover foto
+                    </button>
+                  )}
+                </div>
+                {d.photoPreview && (
+                  <img src={d.photoPreview} alt="Prévia do dano" className="h-24 w-24 object-cover rounded border border-border" />
+                )}
+              </div>
+            ))}
+            <div className="p-3">
+              <Button type="button" variant="outline" size="sm" className="w-full gap-1.5" onClick={addDamage}>
+                <Plus className="size-4" /> Adicionar dano
+              </Button>
+            </div>
+          </Card>
+        </section>
       </main>
 
       <div className={isEmbedded
