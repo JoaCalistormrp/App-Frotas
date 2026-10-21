@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Gavel, Plus, Loader2, AlertTriangle, Clock, ChevronRight,
-  X, Edit2, Trash2, ShieldAlert,
+  X, Edit2, Trash2, ShieldAlert, Paperclip, FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/licitacao")({ component: LicitacaoPage });
@@ -524,10 +524,149 @@ function LicitacaoDetail({ item, users, isAdmin, onClose, onSaved, onDeleted }: 
                 </Button>
               )}
             </div>
+
+            <LicitacaoDocumentos licitacaoId={item.id} />
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Documentos anexados ──────────────────────────────────────────────────────
+type LicitacaoDoc = {
+  id: string; nome: string; file_path: string; file_size: number | null;
+  content_type: string | null; created_at: string; uploaded_by: string | null;
+};
+
+function formatFileSize(bytes: number | null) {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const MAX_DOC_SIZE = 20 * 1024 * 1024;
+
+function LicitacaoDocumentos({ licitacaoId }: { licitacaoId: string }) {
+  const [docs, setDocs] = useState<LicitacaoDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [nome, setNome] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await (supabase as any)
+      .from("licitacao_documentos")
+      .select("id, nome, file_path, file_size, content_type, created_at, uploaded_by")
+      .eq("licitacao_id", licitacaoId)
+      .order("created_at", { ascending: false });
+    setDocs((data ?? []) as LicitacaoDoc[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [licitacaoId]);
+
+  const openDoc = async (doc: LicitacaoDoc) => {
+    const { data, error } = await supabase.storage.from("licitacao-docs").createSignedUrl(doc.file_path, 600);
+    if (error || !data?.signedUrl) { toast.error("Não foi possível abrir o documento."); return; }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const cancelAdd = () => { setAdding(false); setNome(""); setFile(null); };
+
+  const submit = async () => {
+    if (!nome.trim()) return toast.error("Digite um nome para o documento.");
+    if (!file) return toast.error("Selecione um ficheiro.");
+    if (file.size > MAX_DOC_SIZE) return toast.error("Ficheiro muito grande (máx. 20MB).");
+    setBusy(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const ext = file.name.includes(".") ? file.name.split(".").pop() : null;
+      const path = `${licitacaoId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+      const { error: upErr } = await supabase.storage
+        .from("licitacao-docs")
+        .upload(path, file, { contentType: file.type || undefined });
+      if (upErr) throw upErr;
+      const { error: insErr } = await (supabase as any).from("licitacao_documentos").insert({
+        licitacao_id: licitacaoId, nome: nome.trim(), file_path: path,
+        file_size: file.size, content_type: file.type || null, uploaded_by: user?.id ?? null,
+      });
+      if (insErr) throw insErr;
+      toast.success("Documento anexado");
+      cancelAdd();
+      load();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  const remove = async (doc: LicitacaoDoc) => {
+    if (!confirm(`Remover o documento "${doc.nome}"?`)) return;
+    const { error } = await (supabase as any).from("licitacao_documentos").delete().eq("id", doc.id);
+    if (error) { toast.error(error.message); return; }
+    await supabase.storage.from("licitacao-docs").remove([doc.file_path]);
+    setDocs((d) => d.filter((x) => x.id !== doc.id));
+  };
+
+  return (
+    <div className="space-y-2 pt-3 border-t border-border">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Documentos</p>
+        {!adding && (
+          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setAdding(true)}>
+            <Paperclip className="size-3.5" /> Anexar Documento
+          </Button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/20">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nome do documento</Label>
+            <Input
+              placeholder="ex: Edital, Proposta técnica, Certidão negativa"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              maxLength={150}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Ficheiro</Label>
+            <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </div>
+          <div className="flex gap-2 justify-end pt-1">
+            <Button size="sm" variant="ghost" onClick={cancelAdd} disabled={busy}>Cancelar</Button>
+            <Button size="sm" onClick={submit} disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : "Guardar"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Carregando…</p>
+      ) : docs.length === 0 ? (
+        !adding && <p className="text-xs text-muted-foreground">Nenhum documento anexado.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {docs.map((doc) => (
+            <li key={doc.id} className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm">
+              <button type="button" onClick={() => openDoc(doc)} className="flex items-center gap-2 min-w-0 text-left hover:text-primary">
+                <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{doc.nome}</span>
+                {doc.file_size != null && <span className="text-[10px] text-muted-foreground shrink-0">{formatFileSize(doc.file_size)}</span>}
+              </button>
+              <button type="button" onClick={() => remove(doc)} className="text-muted-foreground hover:text-destructive shrink-0" title="Remover">
+                <Trash2 className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
