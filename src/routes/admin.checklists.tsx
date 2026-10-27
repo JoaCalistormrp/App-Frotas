@@ -22,6 +22,16 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
   CESTO_AEREO: "Cesto Aéreo",
   ADMINISTRATIVO: "Administrativo",
   MUNCK: "Munck",
+  MAQUINARIO: "Maquinário",
+};
+
+const VEHICLE_TYPE_BADGE: Record<string, string> = {
+  PESADOS: "bg-slate-500/15 text-slate-700 dark:text-slate-400",
+  OPERACIONAIS: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+  CESTO_AEREO: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  ADMINISTRATIVO: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+  MUNCK: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  MAQUINARIO: "bg-teal-500/15 text-teal-700 dark:text-teal-400",
 };
 
 type Row = {
@@ -241,6 +251,7 @@ function HistoryPage() {
               <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
                 <option value="">Todas</option><option value="PESADOS">Pesados</option><option value="OPERACIONAIS">Operacionais</option>
                 <option value="CESTO_AEREO">Cesto Aéreo</option><option value="ADMINISTRATIVO">Administrativo</option><option value="MUNCK">Munck</option>
+                <option value="MAQUINARIO">Maquinário</option>
               </select>
             </div>
             <div><Label className="text-xs">Status</Label>
@@ -270,9 +281,16 @@ function HistoryPage() {
                   {c.vehicles?.plate ?? "—"}
                   <span className="text-xs font-normal text-muted-foreground ml-1">• {c.profiles?.full_name ?? "—"}</span>
                 </div>
-                {c.has_issues
-                  ? <span className="text-destructive flex items-center gap-1 text-xs shrink-0"><AlertTriangle className="size-3" />Falhas</span>
-                  : <span className="text-green-600 flex items-center gap-1 text-xs shrink-0"><CheckCircle2 className="size-3" />OK</span>}
+                <div className="flex items-center gap-2 shrink-0">
+                  {c.vehicles?.vehicle_type && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${VEHICLE_TYPE_BADGE[c.vehicles.vehicle_type] ?? "bg-muted text-muted-foreground"}`}>
+                      {VEHICLE_TYPE_LABELS[c.vehicles.vehicle_type] ?? c.vehicles.vehicle_type}
+                    </span>
+                  )}
+                  {c.has_issues
+                    ? <span className="text-destructive flex items-center gap-1 text-xs"><AlertTriangle className="size-3" />Falhas</span>
+                    : <span className="text-green-600 flex items-center gap-1 text-xs"><CheckCircle2 className="size-3" />OK</span>}
+                </div>
               </div>
 
               {/* Linha 2: data + itinerário + base */}
