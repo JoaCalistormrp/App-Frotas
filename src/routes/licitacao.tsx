@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { createLicitacao, updateLicitacao, moveLicitacaoStatus, deleteLicitacao } from "@/lib/licitacao.functions";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/app-header";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  Gavel, Plus, Loader2, AlertTriangle, Clock, ChevronRight,
+  Plus, Loader2, AlertTriangle, Clock, ChevronRight,
   X, Edit2, Trash2, ShieldAlert, Paperclip, FileText,
 } from "lucide-react";
 
@@ -114,11 +114,7 @@ function LicitacaoPage() {
     <div className="min-h-screen flex w-full bg-background">
       <ERPSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-          <SidebarTrigger />
-          <Gavel className="size-4 text-primary" />
-          <span className="text-sm font-semibold">Licitações</span>
-        </header>
+        <AppHeader />
         <main className="flex-1 overflow-hidden">
           <LicitacaoBoard userId={user.id} isAdmin={isAdmin} />
         </main>

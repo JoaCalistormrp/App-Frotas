@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/app-header";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,11 +24,7 @@ function MotoristaPage() {
     <div className="min-h-screen flex w-full bg-background">
       <ERPSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-          <SidebarTrigger />
-          <ClipboardList className="size-4 text-primary" />
-          <span className="text-sm font-semibold">Checklist Diário</span>
-        </header>
+        <AppHeader />
         <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {hasFrotasAccess ? (
             <MotoristaChecklist />

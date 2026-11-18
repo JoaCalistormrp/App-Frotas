@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -48,10 +48,14 @@ function MaintenancePage() {
   const path = useRouterState({ select: (state) => state.location.pathname });
   const { isAdmin, isMaster, modules } = useAuth();
   const canSeeTrash = isAdmin || modules.includes("frotas") || modules.includes("frotas.lixeira");
-  const [tab, setTab] = useState<"orders" | "checklists">("orders");
+  // Links diretos (ex.: avisos do Dashboard): ?aba=falhas ou ?filtro=aprovacao
+  const deepLink = useSearch({ strict: false }) as { aba?: string; filtro?: string };
+  const [tab, setTab] = useState<"orders" | "checklists">(() => (deepLink.aba === "falhas" ? "checklists" : "orders"));
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("abertos");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() =>
+    STATUS_FILTERS.some((f) => f.key === deepLink.filtro) ? (deepLink.filtro as StatusFilter) : "abertos",
+  );
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
   const [search, setSearch] = useState("");
   const [pendingFailures, setPendingFailures] = useState(0);
@@ -87,7 +91,6 @@ function MaintenancePage() {
 
   useEffect(() => {
     if (!isChild) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChild]);
 
   if (isChild) return <Outlet />;

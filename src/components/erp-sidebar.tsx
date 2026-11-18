@@ -1,199 +1,206 @@
-import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { CalendarDays, ClipboardList, Home, LogOut, Truck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
-  Home, Truck, TrendingDown, LayoutDashboard, ClipboardList, FilePlus,
-  Wrench, Car, Users, Trash2, LogOut, Building2, ShieldCheck, ChevronDown, Gavel, CalendarDays,
-} from "lucide-react";
-import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter,
-  SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
+  SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar,
 } from "@/components/ui/sidebar";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+import {
+  FROTAS_GROUPS, OTHER_MODULES, canAccessPage, canSeeModule, findActiveFrotasPage, hasFrotasModule, initials, prettyName,
+} from "@/lib/nav";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 
-type NavPage = {
-  title: string; url: string; icon: React.ElementType; exact: boolean; slug: string;
-};
-type NavModule = {
-  title: string; url: string; icon: React.ElementType; exact: boolean;
-  slug: string | null; adminOnly: boolean; pages: NavPage[];
-};
+// Faixa à esquerda + negrito marcam a página atual (não depende só da cor de fundo)
+const ACTIVE_ITEM =
+  "relative before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary " +
+  "before:opacity-0 data-[active=true]:before:opacity-100 data-[active=true]:font-semibold " +
+  "group-data-[collapsible=icon]:before:hidden";
 
-const NAV: NavModule[] = [
-  {
-    title: "Início", url: "/home", icon: Home, exact: true,
-    slug: null, adminOnly: false, pages: [],
-  },
-  {
-    title: "Frotas", url: "/admin", icon: Truck, exact: false,
-    slug: "frotas", adminOnly: false, pages: [
-      { title: "Dashboard",       url: "/admin",                   icon: LayoutDashboard, exact: true,  slug: "frotas.dashboard"     },
-      { title: "Checklists",      url: "/admin/checklists",        icon: ClipboardList,   exact: false, slug: "frotas.checklists"    },
-      { title: "Abrir Checklist", url: "/admin/checklist",         icon: FilePlus,        exact: false, slug: "frotas.checklist_new" },
-      { title: "Manutenção",      url: "/admin/maintenance",       icon: Wrench,          exact: false, slug: "frotas.manutencao"    },
-      { title: "Veículos",        url: "/admin/vehicles",          icon: Car,             exact: false, slug: "frotas.veiculos"      },
-      { title: "Motoristas",      url: "/admin/drivers",           icon: Users,           exact: false, slug: "frotas.motoristas"    },
-      { title: "Lixeira",         url: "/admin/maintenance/trash", icon: Trash2,          exact: false, slug: "frotas.lixeira"       },
-      { title: "Agendamento",     url: "/admin/agendamento",       icon: CalendarDays,    exact: false, slug: "frotas.agendamento"   },
-    ],
-  },
-  {
-    title: "Financeiro Frotas", url: "/financeiro", icon: TrendingDown, exact: true,
-    slug: "financeiro", adminOnly: false, pages: [],
-  },
-  {
-    title: "Licitações", url: "/licitacao", icon: Gavel, exact: false,
-    slug: null, adminOnly: true, pages: [],
-  },
-  {
-    title: "Usuários", url: "/admin/usuarios", icon: ShieldCheck, exact: false,
-    slug: "utilizadores", adminOnly: false, pages: [],
-  },
-];
+function NavItem({ url, title, icon: Icon, active, badge, badgeLabel, onNavigate }: {
+  url: string; title: string; icon: LucideIcon; active: boolean; badge?: number; badgeLabel?: string; onNavigate: () => void;
+}) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={active} tooltip={badge ? `${title} · ${badge} ${badgeLabel ?? ""}`.trim() : title} className={ACTIVE_ITEM}>
+        <Link to={url as never} onClick={onNavigate} aria-current={active ? "page" : undefined}>
+          <Icon />
+          <span>{title}</span>
+        </Link>
+      </SidebarMenuButton>
+      {!!badge && (
+        <SidebarMenuBadge className="bg-amber-500/15 text-amber-700 dark:text-amber-400" aria-label={`${badge} ${badgeLabel ?? ""}`}>
+          {badge}
+        </SidebarMenuBadge>
+      )}
+    </SidebarMenuItem>
+  );
+}
+
+function useAwaitingApproval(enabled: boolean, path: string) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) { setCount(0); return; }
+    let alive = true;
+    supabase
+      .from("maintenance_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "aguardando_aprovacao")
+      .is("deleted_at", null)
+      .then(({ count: c }) => { if (alive) setCount(c ?? 0); });
+    return () => { alive = false; };
+  }, [enabled, path]);
+  return count;
+}
 
 export function ERPSidebar() {
-  const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
-  const collapsed = state === "collapsed";
+  const collapsed = state === "collapsed" && !isMobile;
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { signOut, user, isAdmin, isFieldDriver, isMechanic, modules } = useAuth();
+  const { signOut, user, fullName, isAdmin, isMaster, isViewer, isFieldDriver, isMechanic, modules } = useAuth();
 
-  const isActive = (url: string, exact: boolean) =>
-    exact ? path === url : path === url || path.startsWith(url + "/");
+  const closeMobile = () => { if (isMobile) setOpenMobile(false); };
+  const activeUrl = findActiveFrotasPage(path)?.url ?? null;
 
-  const canSeeModule = (mod: NavModule) => {
-    if (mod.adminOnly && !isAdmin) return false;
-    if (!mod.slug) return true;
-    if (mod.slug === "frotas") return modules.some((s) => s === "frotas" || s.startsWith("frotas."));
-    return modules.includes(mod.slug);
-  };
+  const fieldMode = isFieldDriver || isMechanic;
+  const canMaintain = canAccessPage(modules, "frotas.manutencao");
+  const awaiting = useAwaitingApproval(isMaster && canMaintain && !fieldMode, path);
 
-  const canSeePage = (page: NavPage) => {
-    if (modules.includes("frotas")) return true;
-    if (modules.includes(page.slug)) return true;
-    // páginas com sub-permissões (ex: frotas.agendamento.readonly também dá acesso à aba)
-    return modules.some((m) => m.startsWith(page.slug + "."));
-  };
+  const groups = hasFrotasModule(modules)
+    ? FROTAS_GROUPS.map((g) => ({ ...g, pages: g.pages.filter((p) => canAccessPage(modules, p.slug)) })).filter((g) => g.pages.length)
+    : [];
+  const pageCount = groups.reduce((n, g) => n + g.pages.length, 0);
+  const showGroupLabels = pageCount > 4;
+  const others = OTHER_MODULES.filter((m) => canSeeModule(m, modules, isAdmin));
 
-  const findActiveModule = () =>
-    NAV.find((m) => m.pages.length > 0 && m.pages.some((p) => isActive(p.url, p.exact)))?.url ?? null;
-
-  const [expanded, setExpanded] = useState<string | null>(findActiveModule);
-
-  useEffect(() => {
-    const active = findActiveModule();
-    if (active) setExpanded(active);
-  }, [path]);
-
-  const go = (url: string) => {
-    navigate({ to: url as Parameters<typeof navigate>[0]["to"] });
-    if (isMobile) setOpenMobile(false);
-  };
+  const name = prettyName(fullName) ?? user?.email ?? "Usuário";
+  const roleLabel = isMaster ? "Master" : isAdmin ? "Administrador" : isViewer ? "Consulta" : isMechanic ? "Mecânico" : fieldMode ? "Motorista" : "Geral";
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 p-2">
-          <img src={logoTomaz} alt="Grupo Tomaz" className="h-8 w-8 object-contain shrink-0" />
+        <Link
+          to={(fieldMode ? "/motorista" : "/home") as never}
+          onClick={closeMobile}
+          className="flex items-center gap-2.5 rounded-md p-1.5 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          aria-label="Grupo Tomaz — ir para o início"
+        >
+          <img src={logoTomaz} alt="" className="size-8 shrink-0 object-contain" />
           {!collapsed && (
-            <div className="min-w-0">
-              <div className="font-bold text-sm truncate">Grupo Tomaz</div>
-              <div className="text-[10px] text-sidebar-foreground/60 flex items-center gap-1">
-                <Building2 className="size-3" /> Sistema ERP
-              </div>
-            </div>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-sm font-bold">Grupo Tomaz</span>
+              <span className="block text-[11px] text-sidebar-foreground/60">Sistema ERP</span>
+            </span>
           )}
-        </div>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.filter(canSeeModule).map((mod) => {
-                const hasPages = mod.pages.length > 0;
-                const isExpanded = expanded === mod.url && !collapsed;
-                const visiblePages = hasPages ? mod.pages.filter(canSeePage) : [];
-                const modActive = hasPages
-                  ? visiblePages.some((p) => isActive(p.url, p.exact))
-                  : isActive(mod.url, mod.exact);
+        {fieldMode ? (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <NavItem url="/motorista" title="Checklist diário" icon={ClipboardList} active={path === "/motorista"} onNavigate={closeMobile} />
+                {canAccessPage(modules, "frotas.agendamento") && (
+                  <NavItem url="/admin/agendamento" title="Agendamento" icon={CalendarDays} active={activeUrl === "/admin/agendamento"} onNavigate={closeMobile} />
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          <>
+            <SidebarGroup className="pb-0">
+              <SidebarMenu>
+                <NavItem url="/home" title="Início" icon={Home} active={path === "/home"} onNavigate={closeMobile} />
+              </SidebarMenu>
+            </SidebarGroup>
 
-                return (
-                  <SidebarMenuItem key={mod.url}>
-                    <SidebarMenuButton
-                      isActive={modActive}
-                      onClick={() => {
-                        if (hasPages && !collapsed) {
-                          setExpanded(isExpanded ? null : mod.url);
-                        } else {
-                          go(mod.url);
-                        }
-                      }}
-                      className="justify-between"
-                    >
-                      <span className="flex items-center gap-2 min-w-0">
-                        <mod.icon className="size-4 shrink-0" />
-                        {!collapsed && <span className="truncate">{mod.title}</span>}
-                      </span>
-                      {hasPages && !collapsed && (
-                        <ChevronDown
-                          className={`size-3.5 shrink-0 transition-transform text-sidebar-foreground/40 ${isExpanded ? "rotate-0" : "-rotate-90"}`}
-                        />
+            {groups.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="gap-2 text-xs font-semibold text-sidebar-foreground/80">
+                  <Truck />Frotas
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  {groups.map((g) => (
+                    <div key={g.label ?? "visao-geral"}>
+                      {showGroupLabels && g.label && (
+                        <div className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45 group-data-[collapsible=icon]:hidden">
+                          {g.label}
+                        </div>
                       )}
-                    </SidebarMenuButton>
-
-                    {isExpanded && visiblePages.length > 0 && (
-                      <SidebarMenuSub>
-                        {visiblePages.map((page) => (
-                          <SidebarMenuSubItem key={page.url}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(page.url, page.exact)}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => go(page.url)}
-                                className="w-full flex items-center gap-2"
-                              >
-                                <page.icon className="size-4 shrink-0" />
-                                <span>{page.title}</span>
-                              </button>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
+                      <SidebarMenu>
+                        {g.pages.map((p) => (
+                          <NavItem
+                            key={p.url}
+                            url={p.url}
+                            title={p.title}
+                            icon={p.icon}
+                            active={activeUrl === p.url}
+                            badge={p.url === "/admin/maintenance" ? awaiting : undefined}
+                            badgeLabel="aguardando aprovação"
+                            onNavigate={closeMobile}
+                          />
                         ))}
-                      </SidebarMenuSub>
-                    )}
-                  </SidebarMenuItem>
-                );
-              })}
+                      </SidebarMenu>
+                    </div>
+                  ))}
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
 
-              {(isFieldDriver || isMechanic) && modules.some((s) => s === "frotas" || s.startsWith("frotas.")) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={path === "/motorista"}
-                    onClick={() => go("/motorista")}
-                  >
-                    <ClipboardList className="size-4 shrink-0" />
-                    {!collapsed && <span>{isMechanic ? "Checklist (Mecânico)" : "Checklist Diário"}</span>}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            {others.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/80">Outros módulos</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {others.map((m) => (
+                      <NavItem
+                        key={m.url}
+                        url={m.url}
+                        title={m.title}
+                        icon={m.icon}
+                        active={path === m.url || path.startsWith(m.url + "/")}
+                        onNavigate={closeMobile}
+                      />
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+          </>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut} className="text-destructive/80 hover:text-destructive">
-              <LogOut className="size-4 shrink-0" />
-              {!collapsed && <span className="truncate">Sair ({user?.email})</span>}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className={cn("flex items-center gap-2 rounded-md p-1", collapsed && "flex-col p-0")}>
+          <span
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground"
+            title={`${name} · ${roleLabel}`}
+            aria-hidden
+          >
+            {initials(name)}
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-sm font-medium">{name}</span>
+              <span className="block truncate text-[11px] text-sidebar-foreground/60">{roleLabel}</span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={signOut}
+            title="Sair"
+            aria-label="Sair do sistema"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-sidebar-foreground/60 outline-none transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          >
+            <LogOut className="size-4" />
+          </button>
+        </div>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
+import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin")({
@@ -18,15 +18,15 @@ const FROTAS_SCREEN_GUARDS: Array<[path: string, slug: string]> = [
   ["/admin/agendamento",       "frotas.agendamento"],
   ["/admin",                   "frotas.dashboard"],
 ];
-
+  
 function hasFrotasAccess(modules: string[]) {
   return modules.some((m) => m === "frotas" || m.startsWith("frotas."));
 }
 
-// Aceita o próprio slug ou qualquer sub-permissão dele (ex: "frotas.agendamento.readonly"
-// para quem só tem "visualizar"), igual ao que a barra lateral já faz em canSeePage.
+// Aceita o próprio slug ou a variante "somente visualizar" (ex.: "frotas.agendamento.readonly").
+// Prefixo genérico não serve: "frotas.checklists.pesados" é tipo de checklist e não dá acesso ao Histórico.
 function hasSlug(modules: string[], slug: string) {
-  return modules.includes(slug) || modules.some((m) => m.startsWith(slug + "."));
+  return modules.includes(slug) || modules.includes(`${slug}.readonly`);
 }
 
 function AdminLayout() {
@@ -70,14 +70,7 @@ function AdminLayout() {
     <div className="min-h-screen flex w-full bg-background">
       <ERPSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10">
-          <SidebarTrigger className="ml-2" />
-          <div className="ml-3 flex items-center gap-1.5 text-sm">
-            <span className="text-muted-foreground/60">ERP</span>
-            <span className="text-muted-foreground/40">/</span>
-            <span className="font-semibold">Frotas</span>
-          </div>
-        </header>
+        <AppHeader />
         <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
           <Outlet />
         </main>

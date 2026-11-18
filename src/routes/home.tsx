@@ -1,7 +1,8 @@
 import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ERPSidebar } from "@/components/erp-sidebar";
+import { AppHeader } from "@/components/app-header";
+import { ALL_FROTAS_PAGES, canAccessPage, hasFrotasModule, prettyName } from "@/lib/nav";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,8 +101,19 @@ function NotificationToggle({ userId }: { userId: string }) {
   );
 }
 
+// Atalhos para as tarefas mais comuns, na ordem de uso; cada pessoa vê só o que pode abrir
+const QUICK_ACCESS: Array<{ url: string; desc: string }> = [
+  { url: "/admin/checklist", desc: "Inspeção diária de um veículo" },
+  { url: "/admin/maintenance", desc: "Abrir e acompanhar OS" },
+  { url: "/admin", desc: "Resumo do dia da frota" },
+  { url: "/admin/agendamento", desc: "Reservas e serviços na agenda" },
+  { url: "/admin/checklists", desc: "Todos os checklists enviados" },
+  { url: "/admin/vehicles", desc: "Cadastro e documentos" },
+  { url: "/admin/drivers", desc: "CNH e dados dos motoristas" },
+];
+
 function ERPHome() {
-  const { user, isAdmin, isViewer, isMechanic, isDriver, isFieldDriver, modules, loading } = useAuth();
+  const { user, fullName, isAdmin, isViewer, isMechanic, isDriver, isFieldDriver, modules, loading } = useAuth();
 
   if (loading) {
     return (
@@ -117,47 +129,71 @@ function ERPHome() {
 
   const visibleModules = ALL_MODULES.filter((m) =>
     m.slug === "frotas"
-      ? modules.some((s) => s === "frotas" || s.startsWith("frotas."))
-      : modules.includes(m.slug)
+      ? hasFrotasModule(modules)
+      : m.slug === "licitacao"
+        ? isAdmin || modules.includes(m.slug)
+        : modules.includes(m.slug)
   );
-  const firstName = user.email?.split("@")[0] ?? "utilizador";
+  const quick = hasFrotasModule(modules)
+    ? QUICK_ACCESS.map((q) => ({ ...q, page: ALL_FROTAS_PAGES.find((p) => p.url === q.url) }))
+        .filter((q): q is typeof q & { page: NonNullable<typeof q.page> } => !!q.page && canAccessPage(modules, q.page.slug))
+        .slice(0, 6)
+    : [];
+  const firstName = prettyName(fullName)?.split(" ")[0] ?? null;
 
   return (
-    <div className="min-h-screen flex w-full bg-backgroundl">
+    <div className="min-h-screen flex w-full bg-background">
       <ERPSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="h-12 flex items-center border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-2 gap-2">
-          <SidebarTrigger />
-          <span className="text-sm font-semibold text-foreground/80 flex-1">Início</span>
-          {isAdmin && user && <NotificationToggle userId={user.id} />}
-        </header>
+        <AppHeader actions={isAdmin && user ? <NotificationToggle userId={user.id} /> : undefined} />
 
-          {/* Main content */}
           <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
             <div className="max-w-3xl mx-auto space-y-8">
 
-              {/* Welcome banner */}
               <div className="flex items-center gap-4 pt-2">
                 <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Building2 className="size-7 text-primary" />
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold leading-tight">
-                    Bem-vindo, {firstName}
+                    {firstName ? `Olá, ${firstName}` : "Olá"}
                   </h1>
                   <p className="text-muted-foreground text-sm mt-0.5">
-                    Selecione um módulo para começar
+                    {quick.length ? "O que você quer fazer agora?" : "Selecione um módulo para começar"}
                   </p>
                 </div>
               </div>
 
-              {/* Module cards */}
+              {quick.length > 0 && (
+                <section aria-labelledby="acesso-rapido">
+                  <h2 id="acesso-rapido" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Acesso rápido
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {quick.map((q) => (
+                      <Link to={q.url as never} key={q.url} className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <Card className="p-4 flex items-center gap-3 h-full transition-colors group-hover:border-primary/40 group-hover:bg-muted/30">
+                          <span className="size-10 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+                            <q.page.icon className="size-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold">{q.page.title}</span>
+                            <span className="block text-xs text-muted-foreground truncate">{q.desc}</span>
+                          </span>
+                          <ArrowRight className="size-4 text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors" />
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {(visibleModules.length > 1 || quick.length === 0) && (
               <section>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                   Módulos disponíveis
-                </p>
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {visibleModules.map((mod) => (
                     <Link to={mod.url} key={mod.url} className="group">
@@ -184,6 +220,7 @@ function ERPHome() {
                   ))}
                 </div>
               </section>
+              )}
             </div>
           </main>
         </div>

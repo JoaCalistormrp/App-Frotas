@@ -14,6 +14,7 @@ type AuthCtx = {
   isFieldDriver: boolean;
   roles: string[];
   modules: string[];
+  fullName: string | null;
   loading: boolean;
   reloadModules: () => Promise<void>;
   signIn: (cpf: string, password: string) => Promise<{ error?: string }>;
@@ -32,11 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isMaster, setIsMaster] = useState(false);
   const [roles, setRoles] = useState<string[]>([]);
   const [modules, setModules] = useState<string[]>([]);
+  const [fullName, setFullName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadRoles = async (uid: string | null) => {
-      if (!uid) { setRoles([]); setModules([]); setIsAdmin(false); setIsMaster(false); return; }
+      if (!uid) { setRoles([]); setModules([]); setIsAdmin(false); setIsMaster(false); setFullName(null); return; }
+      supabase.from("profiles").select("full_name").eq("id", uid).maybeSingle()
+        .then(({ data: p }) => setFullName(p?.full_name ?? null));
       const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
       const rs = (data ?? []).map((r) => r.role as string);
       setRoles(rs);
@@ -147,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Só quem não tem nenhum módulo além de checklist é tratado como motorista puro
   // (abre direto no Checklist Diário); os demais usam o Início normal.
   const isFieldDriver = isDriver && !hasBroaderFrotasAccess(modules);
-  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, isFieldDriver, roles, modules, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, session, isAdmin, isMaster, isViewer, isMechanic, isDriver, isFieldDriver, roles, modules, fullName, loading, reloadModules, signIn, signInEmail, signInUnified, signUp, signOut }}>{children}</Ctx.Provider>;
 }
 
 const BROAD_ACCESS_SLUGS = [
