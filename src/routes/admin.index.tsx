@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { ClipboardList, Truck, Users, Wrench, AlertTriangle, CheckCircle2, Bell, FileText } from "lucide-react";
+import { OPEN_STATUSES } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -54,7 +55,7 @@ function AdminDashboard() {
     const [{ count: vc }, { count: dc }, { count: oc }] = await Promise.all([
       supabase.from("vehicles").select("*", { count: "exact", head: true }).eq("active", true),
       supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "driver"),
-      (supabase.from as never as (t: string) => { select: (s: string, o: { count: "exact"; head: boolean }) => { neq: (c: string, v: string) => Promise<{ count: number | null }> } })("maintenance_orders").select("*", { count: "exact", head: true }).neq("status", "solucionado"),
+      supabase.from("maintenance_orders").select("*", { count: "exact", head: true }).in("status", OPEN_STATUSES).is("deleted_at", null),
     ]);
     setStats({ vehicles: vc ?? 0, drivers: dc ?? 0, openOrders: oc ?? 0 });
   })(); }, []);

@@ -24,14 +24,9 @@ import {
   Calendar, Wrench, DollarSign, AlertCircle, Loader2, X, Plus, Flag,
   SlidersHorizontal, Unlink2,
 } from "lucide-react";
-import { statusLabel, statusTone } from "@/lib/maintenance";
+import { APPROVED_STATUSES, statusLabel, statusTone } from "@/lib/maintenance";
 
 export const Route = createFileRoute("/financeiro")({ component: FinanceiroFrotas });
-
-const APPROVED_STATUSES = [
-  "aprovada", "aguardando_pecas", "em_execucao",
-  "em_manutencao", "teste_final", "finalizada", "solucionado",
-];
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PartialLink = {
