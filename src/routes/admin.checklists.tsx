@@ -1,17 +1,24 @@
-import {  LogOut, Clock, AlertCircle, X as Camera, Trash2, ClipboardList, FilePlus } from "lucide-react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal, FileSpreadsheet, FileDown, AlertTriangle, CheckCircle2, Wrench, Search, XIcon } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertTriangle, Camera, CheckCircle2, ChevronDown, ClipboardList, FileDown, FilePlus, FileSpreadsheet, Search,
+  SlidersHorizontal, Wrench, X as XIcon,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { applyPdfBranding, urlToDataUrl } from "@/lib/admin-pdf";
 import { useAuth } from "@/lib/auth";
+import { canAccessPage, prettyName } from "@/lib/nav";
+import { timeAgo, type MaintenanceStatus } from "@/lib/maintenance";
+import { StatusBadge } from "@/components/maintenance-ui";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/checklists")({ component: HistoryPage });
@@ -41,35 +48,65 @@ type Row = {
   profiles?: { full_name: string | null; cpf: string | null } | null;
   photo_count?: number;
   photo_urls?: string[];
+  failure_count?: number;
 };
 
-type FilterState = { from: string; to: string; plate: string; driver: string; base: string; type: string; issues: string };
+type LinkedOs = { id: string; order_number: string; status: MaintenanceStatus };
+type Period = "hoje" | "7d" | "30d" | "tudo";
+type IssueFilter = "todos" | "falhas" | "ok";
+type Extra = { from: string; to: string; base: string; type: string };
 
-// Isolamos os filtros em uma função pura para não estourar a Complexidade Ciclomática (Max 10) no componente
-function passesFilter(c: Row, f: FilterState): boolean {
-  if (f.from && new Date(c.created_at) < new Date(f.from)) return false;
-  if (f.to) { const t = new Date(f.to); t.setDate(t.getDate() + 1); if (new Date(c.created_at) >= t) return false; }
-  if (f.plate && !(c.vehicles?.plate ?? "").toLowerCase().includes(f.plate.toLowerCase())) return false;
-  if (f.driver && !(c.profiles?.full_name ?? "").toLowerCase().includes(f.driver.toLowerCase())) return false;
-  if (f.base && !(c.vehicles?.base ?? "").toLowerCase().includes(f.base.toLowerCase())) return false;
-  if (f.type && c.vehicles?.vehicle_type !== f.type) return false;
-  if (f.issues === "yes" && !c.has_issues) return false;
-  if (f.issues === "no" && c.has_issues) return false;
+const PERIODS: Array<[Period, string]> = [["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["tudo", "Tudo"]];
+const EMPTY_EXTRA: Extra = { from: "", to: "", base: "", type: "" };
+const PAGE = 40;
+
+const startOfDayOffset = (days: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - days); return d; };
+const periodStart = (p: Period) => (p === "hoje" ? startOfDayOffset(0) : p === "7d" ? startOfDayOffset(6) : p === "30d" ? startOfDayOffset(29) : null);
+
+function inPeriod(c: Row, p: Period, x: Extra) {
+  const t = new Date(c.created_at);
+  const s = periodStart(p);
+  if (s && t < s) return false;
+  if (x.from && t < new Date(`${x.from}T00:00:00`)) return false;
+  if (x.to) { const end = new Date(`${x.to}T00:00:00`); end.setDate(end.getDate() + 1); if (t >= end) return false; }
+  if (x.base && c.vehicles?.base !== x.base) return false;
+  if (x.type && c.vehicles?.vehicle_type !== x.type) return false;
   return true;
 }
 
+function matchesSearch(c: Row, q: string) {
+  return [c.vehicles?.plate, c.vehicles?.model, c.profiles?.full_name, c.vehicles?.base, c.itinerary]
+    .some((v) => (v ?? "").toLowerCase().includes(q));
+}
+
+// PostgREST recebe os ids na URL; em lotes evitamos URLs gigantes conforme o histórico cresce
+async function inChunks<T>(ids: string[], fetch: (chunk: string[]) => PromiseLike<{ data: T[] | null }>) {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data } = await fetch(ids.slice(i, i + 150));
+    out.push(...(data ?? []));
+  }
+  return out;
+}
+
 function HistoryPage() {
-  const { isAdmin, isMaster } = useAuth();
+  const { modules } = useAuth();
+  const canMaintain = canAccessPage(modules, "frotas.manutencao");
+  const canNewChecklist = canAccessPage(modules, "frotas.checklist_new");
+  const deepLink = useSearch({ strict: false }) as { periodo?: string; status?: string };
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [osMap, setOsMap] = useState<Record<string, { order_number: string; id: string }>>({});
+  const [osMap, setOsMap] = useState<Record<string, LinkedOs>>({});
   const [reportingId, setReportingId] = useState<string | null>(null);
 
-  const [f, setF] = useState<FilterState>({ from: "", to: "", plate: "", driver: "", base: "", type: "", issues: "all" });
-  const [showFilter, setShowFilter] = useState(false);
-
-  const activeFilterCount = [f.from, f.to, f.plate, f.driver, f.base, f.type, f.issues !== "all" ? f.issues : ""].filter(Boolean).length;
+  const [period, setPeriod] = useState<Period>(() => (PERIODS.some(([p]) => p === deepLink.periodo) ? (deepLink.periodo as Period) : "30d"));
+  const [issues, setIssues] = useState<IssueFilter>(() => (deepLink.status === "falhas" || deepLink.status === "ok" ? deepLink.status : "todos"));
+  const [search, setSearch] = useState("");
+  const [extra, setExtra] = useState<Extra>(EMPTY_EXTRA);
+  const [showMore, setShowMore] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE);
 
   useEffect(() => { (async () => {
     setLoading(true);
@@ -77,36 +114,51 @@ function HistoryPage() {
       .select("id, driver_id, created_at, has_issues, itinerary, status, vehicles(plate, model, vehicle_type, base)")
       .order("created_at", { ascending: false }).limit(5000);
     const list = (data ?? []) as unknown as Row[];
-    const ids = Array.from(new Set(list.map((c) => c.driver_id).filter(Boolean)));
-    let map: Record<string, { full_name: string | null; cpf: string | null }> = {};
-    if (ids.length) {
-      const { data: p } = await supabase.from("profiles").select("id, full_name, cpf").in("id", ids);
-      map = Object.fromEntries((p ?? []).map((x) => [x.id, { full_name: x.full_name, cpf: x.cpf }]));
-    }
-    
+    const driverIds = Array.from(new Set(list.map((c) => c.driver_id).filter(Boolean)));
     const checklistIds = list.map((c) => c.id);
-    const photosByChecklist: Record<string, string[]> = {};
-    if (checklistIds.length) {
-      const { data: resps } = await supabase.from("checklist_responses").select("checklist_id, photo_url").in("checklist_id", checklistIds).not("photo_url", "is", null);
-      for (const r of (resps ?? []) as Array<{ checklist_id: string; photo_url: string | null }>) {
-        if (!r.photo_url) continue;
-        (photosByChecklist[r.checklist_id] ||= []).push(r.photo_url);
-      }
-    }
-    setRows(list.map((r) => ({ ...r, profiles: map[r.driver_id] ?? null, photo_urls: photosByChecklist[r.id] ?? [], photo_count: (photosByChecklist[r.id] ?? []).length })));
 
-    if (checklistIds.length) {
-      const { data: osData } = await supabase.from("maintenance_orders").select("id, order_number, checklist_id").in("checklist_id", checklistIds).is("deleted_at", null);
-      const newOsMap: Record<string, { order_number: string; id: string }> = {};
-      for (const os of (osData ?? []) as Array<{ id: string; order_number: string; checklist_id: string }>) {
-        if (os.checklist_id) newOsMap[os.checklist_id] = { id: os.id, order_number: os.order_number };
-      }
-      setOsMap(newOsMap);
+    const [profiles, resps, osData] = await Promise.all([
+      inChunks<{ id: string; full_name: string | null; cpf: string | null }>(driverIds, (ch) => supabase.from("profiles").select("id, full_name, cpf").in("id", ch)),
+      inChunks<{ checklist_id: string; photo_url: string | null; status: string }>(checklistIds, (ch) =>
+        supabase.from("checklist_responses").select("checklist_id, photo_url, status").in("checklist_id", ch).or("status.eq.NAO_OK,photo_url.not.is.null")),
+      inChunks<{ id: string; order_number: string; checklist_id: string | null; status: MaintenanceStatus }>(checklistIds.filter((_, i) => list[i].has_issues), (ch) =>
+        supabase.from("maintenance_orders").select("id, order_number, checklist_id, status").in("checklist_id", ch).is("deleted_at", null) as never),
+    ]);
+
+    const map = Object.fromEntries(profiles.map((x) => [x.id, { full_name: x.full_name, cpf: x.cpf }]));
+    const photos: Record<string, string[]> = {};
+    const fails: Record<string, number> = {};
+    for (const r of resps) {
+      if (r.photo_url) (photos[r.checklist_id] ||= []).push(r.photo_url);
+      if (r.status === "NAO_OK") fails[r.checklist_id] = (fails[r.checklist_id] ?? 0) + 1;
     }
+    setRows(list.map((r) => ({
+      ...r, profiles: map[r.driver_id] ?? null, photo_urls: photos[r.id] ?? [], photo_count: (photos[r.id] ?? []).length, failure_count: fails[r.id] ?? 0,
+    })));
+    const os: Record<string, LinkedOs> = {};
+    for (const o of osData) if (o.checklist_id) os[o.checklist_id] = { id: o.id, order_number: o.order_number, status: o.status };
+    setOsMap(os);
     setLoading(false);
   })(); }, []);
 
-  const filtered = rows.filter((c) => passesFilter(c, f));
+  useEffect(() => { setVisibleCount(PAGE); }, [period, issues, search, extra]);
+
+  const q = search.trim().toLowerCase();
+  const scoped = rows.filter((c) => inPeriod(c, period, extra) && (!q || matchesSearch(c, q)));
+  const counts = { todos: scoped.length, falhas: scoped.filter((c) => c.has_issues).length, ok: scoped.filter((c) => !c.has_issues).length };
+  const filtered = scoped.filter((c) => issues === "todos" || (issues === "falhas" ? c.has_issues : !c.has_issues));
+  const withoutOs = scoped.filter((c) => c.has_issues && !osMap[c.id]).length;
+  const bases = Array.from(new Set(rows.map((c) => c.vehicles?.base).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const extraCount = Object.values(extra).filter(Boolean).length;
+  const anyFilter = period !== "30d" || issues !== "todos" || !!q || extraCount > 0;
+  const clearAll = (p: Period = "30d") => { setPeriod(p); setIssues("todos"); setSearch(""); setExtra(EMPTY_EXTRA); };
+
+  const activeChips: Array<{ key: keyof Extra; label: string }> = [
+    extra.from && { key: "from" as const, label: `De ${new Date(`${extra.from}T00:00:00`).toLocaleDateString("pt-BR")}` },
+    extra.to && { key: "to" as const, label: `Até ${new Date(`${extra.to}T00:00:00`).toLocaleDateString("pt-BR")}` },
+    extra.base && { key: "base" as const, label: extra.base },
+    extra.type && { key: "type" as const, label: VEHICLE_TYPE_LABELS[extra.type] ?? extra.type },
+  ].filter(Boolean) as Array<{ key: keyof Extra; label: string }>;
 
   const data = () => filtered.map((c) => ({
     Data: new Date(c.created_at).toLocaleString("pt-BR"), Placa: c.vehicles?.plate ?? "", Modelo: c.vehicles?.model ?? "",
@@ -121,7 +173,7 @@ function HistoryPage() {
     XLSX.utils.book_append_sheet(wb, ws, "Checklists");
     XLSX.writeFile(wb, `historico_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
-  
+
   const exportPdf = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     await applyPdfBranding(doc, "Histórico Geral de Checklists", `Total filtrado: ${filtered.length}`);
@@ -212,137 +264,240 @@ function HistoryPage() {
     }
   };
 
+  const visible = filtered.slice(0, visibleCount);
+
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold">Histórico Geral de Checklists</h1>
-          <p className="text-sm text-muted-foreground">Pesquise todo o histórico desde o primeiro checklist</p>
+    <div className="mx-auto max-w-7xl space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-2xl font-bold"><ClipboardList className="size-6" />Histórico de checklists</h1>
+          <p className="text-sm text-muted-foreground">Todos os checklists enviados, do mais recente ao mais antigo</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={showFilter ? "secondary" : "outline"}
-            onClick={() => setShowFilter((v) => !v)}
-            className="relative gap-1.5"
-          >
-            <SlidersHorizontal className="size-4" />
-            Filtros
-            {activeFilterCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
-          <Button size="sm" variant="outline" onClick={exportExcel} disabled={!filtered.length}><FileSpreadsheet className="size-4 mr-2" />Excel</Button>
-          <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length}><FileDown className="size-4 mr-2" />PDF</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={exportExcel} disabled={!filtered.length}><FileSpreadsheet />Excel</Button>
+          <Button size="sm" variant="ghost" onClick={exportPdf} disabled={!filtered.length}><FileDown />PDF</Button>
+          {canNewChecklist && (
+            <Button asChild size="sm"><Link to="/admin/checklist"><FilePlus />Abrir checklist</Link></Button>
+          )}
         </div>
       </div>
 
-      {showFilter && (
-        <Card className="p-4 space-y-3 border-dashed border-primary/30 bg-primary/[0.02]">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div><Label className="text-xs">De</Label><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></div>
-            <div><Label className="text-xs">Até</Label><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></div>
-            <div><Label className="text-xs">Placa</Label><Input value={f.plate} onChange={(e) => setF({ ...f, plate: e.target.value })} /></div>
-            <div><Label className="text-xs">Motorista</Label><Input value={f.driver} onChange={(e) => setF({ ...f, driver: e.target.value })} /></div>
-            <div><Label className="text-xs">Base</Label><Input value={f.base} onChange={(e) => setF({ ...f, base: e.target.value })} /></div>
-            <div><Label className="text-xs">Categoria</Label>
-              <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-                <option value="">Todas</option><option value="PESADOS">Pesados</option><option value="OPERACIONAIS">Operacionais</option>
-                <option value="CESTO_AEREO">Cesto Aéreo</option><option value="ADMINISTRATIVO">Administrativo</option><option value="MUNCK">Munck</option>
-                <option value="MAQUINARIO">Maquinário</option>
-              </select>
-            </div>
-            <div><Label className="text-xs">Status</Label>
-              <select value={f.issues} onChange={(e) => setF({ ...f, issues: e.target.value })} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-                <option value="all">Todos</option><option value="yes">Com falhas</option><option value="no">OK</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <Button variant="ghost" className="w-full" onClick={() => setF({ from: "", to: "", plate: "", driver: "", base: "", type: "", issues: "all" })}>
-                Limpar
-              </Button>
-            </div>
+      {!loading && withoutOs > 0 && canMaintain && (
+        <Card className="flex items-center gap-3 border-destructive/30 bg-destructive/5 p-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="size-4" /></span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold leading-tight">{withoutOs} checklist{withoutOs > 1 ? "s" : ""} com falha sem OS neste período</div>
+            <div className="truncate text-xs text-muted-foreground">Abra a OS direto no cartão do checklist ou pela Manutenção</div>
           </div>
+          <Button size="sm" variant="outline" className="shrink-0 bg-background" onClick={() => setIssues("falhas")}>Ver falhas</Button>
         </Card>
       )}
 
-      <Card className="p-4">
-        <div className="text-sm font-semibold mb-2">{filtered.length} checklist(s)</div>
-        {loading && <div className="text-sm text-muted-foreground">Carregando…</div>}
-        {!loading && filtered.length === 0 && <div className="text-sm text-muted-foreground">Nenhum resultado.</div>}
-        <div className="divide-y divide-border max-h-[60vh] overflow-auto">
-          {filtered.map((c) => (
-            <div key={c.id} className="py-3 flex flex-col gap-2 text-sm hover:bg-muted/30 px-2 rounded-md">
-              {/* Linha 1: placa + motorista + badge de status */}
-              <div className="flex items-center justify-between gap-2 min-w-0">
-                <div className="font-bold truncate">
-                  {c.vehicles?.plate ?? "—"}
-                  <span className="text-xs font-normal text-muted-foreground ml-1">• {c.profiles?.full_name ?? "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {c.vehicles?.vehicle_type && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${VEHICLE_TYPE_BADGE[c.vehicles.vehicle_type] ?? "bg-muted text-muted-foreground"}`}>
-                      {VEHICLE_TYPE_LABELS[c.vehicles.vehicle_type] ?? c.vehicles.vehicle_type}
-                    </span>
-                  )}
-                  {c.has_issues
-                    ? <span className="text-destructive flex items-center gap-1 text-xs"><AlertTriangle className="size-3" />Falhas</span>
-                    : <span className="text-green-600 flex items-center gap-1 text-xs"><CheckCircle2 className="size-3" />OK</span>}
-                </div>
-              </div>
-
-              {/* Linha 2: data + itinerário + base */}
-              <div className="text-xs text-muted-foreground">
-                {new Date(c.created_at).toLocaleString("pt-BR")}
-                {c.itinerary ? ` • ${c.itinerary}` : ""}
-                {c.vehicles?.base ? ` • ${c.vehicles.base}` : ""}
-              </div>
-
-              {/* Linha 3: ações */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {c.has_issues && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDetailId(c.id)}>
-                    <Search className="size-3.5 mr-1" />Ver Falhas
-                  </Button>
-                )}
-                {c.has_issues && (isAdmin || isMaster) && (
-                  osMap[c.id]
-                    ? <Link to="/admin/maintenance/$id" params={{ id: osMap[c.id].id }} className="h-7 px-2 text-xs flex items-center gap-1 text-primary hover:underline font-semibold border border-primary/30 rounded-md">
-                        <Wrench className="size-3" />OS N°{osMap[c.id].order_number}
-                      </Link>
-                    : <Link to="/admin/maintenance/$id" params={{ id: "new" }} search={{ checklist: c.id } as never} className="h-7 px-2 text-xs flex items-center gap-1 text-amber-600 hover:underline border border-amber-300 rounded-md">
-                        <Wrench className="size-3" />Abrir OS
-                      </Link>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                  disabled={reportingId === c.id}
-                  onClick={() => exportChecklistReport(c)}
-                >
-                  <FileDown className="size-3.5 mr-1" />{reportingId === c.id ? "Gerando..." : "Relatório"}
-                </Button>
-                {(c.photo_count ?? 0) > 0 && (
-                  <span className="text-xs text-muted-foreground">{c.photo_count} foto(s)</span>
-                )}
-              </div>
-            </div>
-          ))}
+      {/* Filtros: período primeiro, depois busca e situação; o resto fica recolhido */}
+      <div className="space-y-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Segmented value={period} onChange={setPeriod} options={PERIODS} label="Período" />
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar placa, motorista, base…" className="pl-9 pr-9" aria-label="Buscar checklists" />
+            {search && (
+              <button type="button" aria-label="Limpar busca" onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+                <XIcon className="size-4" />
+              </button>
+            )}
+          </div>
+          <Button variant={showMore || extraCount ? "secondary" : "outline"} onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} className="shrink-0">
+            <SlidersHorizontal />Mais filtros{extraCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{extraCount}</span>}
+            <ChevronDown className={cn("transition-transform", showMore && "rotate-180")} />
+          </Button>
         </div>
-      </Card>
+
+        {showMore && (
+          <Card className="grid grid-cols-2 gap-3 p-3 md:grid-cols-4">
+            <div className="space-y-1"><Label className="text-xs">De</Label><Input type="date" value={extra.from} onChange={(e) => setExtra({ ...extra, from: e.target.value })} /></div>
+            <div className="space-y-1"><Label className="text-xs">Até</Label><Input type="date" value={extra.to} onChange={(e) => setExtra({ ...extra, to: e.target.value })} /></div>
+            <div className="space-y-1">
+              <Label className="text-xs">Base</Label>
+              <select value={extra.base} onChange={(e) => setExtra({ ...extra, base: e.target.value })} className="h-10 w-full rounded-md border border-border bg-input px-3 text-sm">
+                <option value="">Todas</option>
+                {bases.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Categoria</Label>
+              <select value={extra.type} onChange={(e) => setExtra({ ...extra, type: e.target.value })} className="h-10 w-full rounded-md border border-border bg-input px-3 text-sm">
+                <option value="">Todas</option>
+                {Object.entries(VEHICLE_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          </Card>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" role="group" aria-label="Filtrar por situação">
+            {([["todos", "Todos"], ["falhas", "Com falha"], ["ok", "Sem falha"]] as Array<[IssueFilter, string]>).map(([k, l]) => {
+              const on = issues === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setIssues(k)}
+                  className={cn(
+                    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
+                  )}
+                >
+                  {k === "falhas" && <AlertTriangle className="size-3.5" />}
+                  {k === "ok" && <CheckCircle2 className="size-3.5" />}
+                  {l}
+                  <span className={cn("min-w-5 rounded-full px-1.5 text-[10px] font-bold", on ? "bg-white/20" : "bg-muted text-muted-foreground")}>{counts[k]}</span>
+                </button>
+              );
+            })}
+          </div>
+          {activeChips.map((c) => (
+            <span key={c.key} className="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pl-2.5 pr-1 text-xs">
+              {c.label}
+              <button type="button" aria-label={`Remover filtro ${c.label}`} onClick={() => setExtra({ ...extra, [c.key]: "" })} className="rounded-full p-0.5 hover:bg-background">
+                <XIcon className="size-3" />
+              </button>
+            </span>
+          ))}
+          {anyFilter && <button type="button" onClick={() => clearAll()} className="text-xs font-medium text-primary hover:underline">Limpar filtros</button>}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="space-y-3 p-8 text-center">
+          <div className="mx-auto grid size-10 place-items-center rounded-full bg-muted"><ClipboardList className="size-5 text-muted-foreground" /></div>
+          <p className="text-sm text-muted-foreground">
+            {rows.length === 0 ? "Nenhum checklist enviado ainda." : "Nenhum checklist encontrado com esses filtros."}
+          </p>
+          {rows.length > 0 && <Button size="sm" variant="outline" onClick={() => clearAll("tudo")}>Limpar filtros e ver tudo</Button>}
+        </Card>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Mostrando {visible.length} de {filtered.length} checklist{filtered.length > 1 ? "s" : ""}
+          </p>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+            {visible.map((c) => (
+              <ChecklistCard
+                key={c.id}
+                row={c}
+                os={osMap[c.id]}
+                canMaintain={canMaintain}
+                reporting={reportingId === c.id}
+                onFailures={() => setDetailId(c.id)}
+                onReport={() => exportChecklistReport(c)}
+              />
+            ))}
+          </div>
+          {visible.length < filtered.length && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => setVisibleCount((n) => n + PAGE)}>
+                Mostrar mais {Math.min(PAGE, filtered.length - visible.length)}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
       {detailId && <DetailModal id={detailId} onClose={() => setDetailId(null)} />}
     </div>
   );
 }
 
-// Modal Limpo isolado para detalhar as falhas do Checklist específico
+function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: Array<[T, string]>; label: string }) {
+  return (
+    <div role="group" aria-label={label} className="grid shrink-0 grid-flow-col auto-cols-fr rounded-md border border-border bg-muted/50 p-0.5">
+      {options.map(([v, l]) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={value === v}
+          onClick={() => onChange(v)}
+          className={cn("h-8 rounded px-3 text-xs font-medium transition-colors", value === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ChecklistCard({ row: c, os, canMaintain, reporting, onFailures, onReport }: {
+  row: Row; os?: LinkedOs; canMaintain: boolean; reporting: boolean; onFailures: () => void; onReport: () => void;
+}) {
+  const type = c.vehicles?.vehicle_type;
+  const meta = [prettyName(c.profiles?.full_name) ?? "—", c.vehicles?.base, c.itinerary].filter(Boolean).join(" · ");
+  return (
+    <Card className={cn("flex h-full flex-col gap-3 border-l-4 p-4", c.has_issues ? "border-l-destructive" : "border-l-green-500")}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold">{c.vehicles?.plate ?? "—"}</span>
+            {c.vehicles?.model && <span className="truncate text-sm text-muted-foreground">· {c.vehicles.model}</span>}
+            {type && (
+              <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", VEHICLE_TYPE_BADGE[type] ?? "bg-muted text-muted-foreground")}>
+                {VEHICLE_TYPE_LABELS[type] ?? type}
+              </span>
+            )}
+          </div>
+          <p className="truncate text-xs text-muted-foreground">{meta}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          {c.has_issues
+            ? <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive"><AlertTriangle className="size-3.5" />{c.failure_count ? `${c.failure_count} falha${c.failure_count > 1 ? "s" : ""}` : "Com falha"}</span>
+            : <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400"><CheckCircle2 className="size-3.5" />Sem falha</span>}
+          <div className="text-[11px] text-muted-foreground" title={new Date(c.created_at).toLocaleString("pt-BR")}>
+            {timeAgo(c.created_at)} · {new Date(c.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-auto flex flex-wrap items-center gap-2">
+        {c.has_issues && (
+          <Button size="sm" variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onFailures}>
+            <Search />Ver falhas
+          </Button>
+        )}
+        {c.has_issues && canMaintain && (
+          os ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to="/admin/maintenance/$id" params={{ id: os.id }}><Wrench />{os.order_number}<StatusBadge status={os.status} /></Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm">
+              <Link to="/admin/maintenance/$id" params={{ id: "new" }} search={{ checklist: c.id } as never}><FilePlus />Abrir OS</Link>
+            </Button>
+          )
+        )}
+        <Button size="sm" variant="ghost" disabled={reporting} onClick={onReport}>
+          <FileDown />{reporting ? "Gerando…" : "Relatório"}
+        </Button>
+        {(c.photo_count ?? 0) > 0 && (
+          <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground"><Camera className="size-3.5" />{c.photo_count}</span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function DetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
-  const [failures, setFailures] = useState<Array<{ id: string; item: string; obs: string; url: string | null }>>([]);
+  const [failures, setFailures] = useState<Array<{ id: string; item: string; obs: string; url: string | null; status: string }>>([]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
 
   useEffect(() => {
     let isMounted = true;
@@ -354,8 +509,9 @@ function DetailModal({ id, onClose }: { id: string; onClose: () => void }) {
         .or("status.eq.NAO_OK,photo_url.not.is.null,observation.not.is.null");
 
       const list = (data ?? []).map((r: any) => ({
-        id: r.id, item: r.checklist_items?.name ?? "Item", obs: r.observation ?? "", photo_url: r.photo_url
+        id: r.id, item: r.checklist_items?.name ?? "Item", obs: r.observation ?? "", photo_url: r.photo_url, status: r.status,
       }));
+      list.sort((a, b) => Number(b.status === "NAO_OK") - Number(a.status === "NAO_OK"));
 
       const withUrls = await Promise.all(list.map(async (f) => {
         if (!f.photo_url) return { ...f, url: null };
@@ -369,22 +525,22 @@ function DetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   }, [id]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4" onClick={onClose}>
-      <Card className="w-full max-w-lg p-5 space-y-3 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
+      <Card role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-lg space-y-3 overflow-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border pb-2">
-          <h3 className="font-bold text-lg flex items-center gap-2 text-destructive"><AlertTriangle className="size-5" />Falhas Registradas</h3>
-          <Button size="icon" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button>
+          <h3 className="flex items-center gap-2 text-lg font-bold text-destructive"><AlertTriangle className="size-5" />Falhas registradas</h3>
+          <Button size="icon" variant="ghost" onClick={onClose} aria-label="Fechar"><XIcon className="size-4" /></Button>
         </div>
-        {loading && <div className="text-sm text-muted-foreground p-4 text-center">Carregando detalhes...</div>}
-        {!loading && failures.length === 0 && <div className="text-sm text-muted-foreground p-4 text-center">Nenhuma falha encontrada neste checklist.</div>}
+        {loading && <div className="p-4 text-center text-sm text-muted-foreground">Carregando detalhes…</div>}
+        {!loading && failures.length === 0 && <div className="p-4 text-center text-sm text-muted-foreground">Nenhuma falha encontrada neste checklist.</div>}
         <div className="space-y-3 pt-2">
-          {failures.map(f => (
-            <div key={f.id} className="bg-destructive/5 p-3 rounded-md border border-destructive/20">
-              <div className="font-bold text-sm text-destructive">{f.item}</div>
-              {f.obs && <div className="text-sm text-muted-foreground mt-1">Obs: {f.obs}</div>}
+          {failures.map((f) => (
+            <div key={f.id} className={cn("rounded-md border p-3", f.status === "NAO_OK" ? "border-destructive/20 bg-destructive/5" : "border-border bg-muted/30")}>
+              <div className={cn("text-sm font-bold", f.status === "NAO_OK" && "text-destructive")}>{f.item}</div>
+              {f.obs && <div className="mt-1 text-sm text-muted-foreground">Obs: {f.obs}</div>}
               {f.url && (
-                <a href={f.url} target="_blank" rel="noreferrer" className="block mt-2">
-                  <img src={f.url} alt="Foto da falha" className="h-32 w-auto object-cover rounded border border-border" />
+                <a href={f.url} target="_blank" rel="noreferrer" className="mt-2 block">
+                  <img src={f.url} alt={`Foto: ${f.item}`} className="h-32 w-auto rounded border border-border object-cover" />
                 </a>
               )}
             </div>

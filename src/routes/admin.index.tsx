@@ -561,6 +561,7 @@ function AdminDashboard() {
           hint={`Média dos 7 dias anteriores: ${avg7.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`}
           icon={ClipboardCheck}
           to={canHistory ? "/admin/checklists" : undefined}
+          search={{ periodo: "hoje" }}
         />
         <StatTile
           label="Veículos verificados hoje"
