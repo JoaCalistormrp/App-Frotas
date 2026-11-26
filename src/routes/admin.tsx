@@ -8,9 +8,11 @@ export const Route = createFileRoute("/admin")({
 });
 
 // Screen slug → path prefix (more specific paths listed first)
-const FROTAS_SCREEN_GUARDS: Array<[path: string, slug: string]> = [
-  ["/admin/maintenance/trash", "frotas.lixeira"],
-  ["/admin/maintenance",       "frotas.manutencao"],
+// Uma tela pode aceitar mais de uma permissão (OS internas: gestor ou mecânico)
+const FROTAS_SCREEN_GUARDS: Array<[path: string, slug: string | string[]]> = [
+  ["/admin/maintenance/trash",    "frotas.lixeira"],
+  ["/admin/maintenance/externas", "frotas.manutencao"],
+  ["/admin/maintenance",          ["frotas.manutencao", "frotas.os_mecanico"]],
   ["/admin/checklists",        "frotas.checklists"],
   ["/admin/checklist",         "frotas.checklist_new"],
   ["/admin/vehicles",          "frotas.veiculos"],
@@ -25,7 +27,8 @@ function hasFrotasAccess(modules: string[]) {
 
 // Aceita o próprio slug ou a variante "somente visualizar" (ex.: "frotas.agendamento.readonly").
 // Prefixo genérico não serve: "frotas.checklists.pesados" é tipo de checklist e não dá acesso ao Histórico.
-function hasSlug(modules: string[], slug: string) {
+function hasSlug(modules: string[], slug: string | string[]): boolean {
+  if (Array.isArray(slug)) return slug.some((s) => hasSlug(modules, s));
   return modules.includes(slug) || modules.includes(`${slug}.readonly`);
 }
 

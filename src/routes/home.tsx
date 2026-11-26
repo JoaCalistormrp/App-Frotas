@@ -2,7 +2,7 @@ import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ERPSidebar } from "@/components/erp-sidebar";
 import { AppHeader } from "@/components/app-header";
-import { ALL_FROTAS_PAGES, canAccessPage, hasFrotasModule, prettyName } from "@/lib/nav";
+import { ALL_FROTAS_PAGES, canSeePage, hasFrotasModule, prettyName } from "@/lib/nav";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,7 +104,8 @@ function NotificationToggle({ userId }: { userId: string }) {
 // Atalhos para as tarefas mais comuns, na ordem de uso; cada pessoa vê só o que pode abrir
 const QUICK_ACCESS: Array<{ url: string; desc: string }> = [
   { url: "/admin/checklist", desc: "Inspeção diária de um veículo" },
-  { url: "/admin/maintenance", desc: "Abrir e acompanhar OS" },
+  { url: "/admin/maintenance", desc: "Oficina Grupo Tomaz: abrir e acompanhar" },
+  { url: "/admin/maintenance/externas", desc: "Registrar OS de oficinas externas" },
   { url: "/admin", desc: "Resumo do dia da frota" },
   { url: "/admin/agendamento", desc: "Reservas e serviços na agenda" },
   { url: "/admin/checklists", desc: "Todos os checklists enviados" },
@@ -136,7 +137,7 @@ function ERPHome() {
   );
   const quick = hasFrotasModule(modules)
     ? QUICK_ACCESS.map((q) => ({ ...q, page: ALL_FROTAS_PAGES.find((p) => p.url === q.url) }))
-        .filter((q): q is typeof q & { page: NonNullable<typeof q.page> } => !!q.page && canAccessPage(modules, q.page.slug))
+        .filter((q): q is typeof q & { page: NonNullable<typeof q.page> } => !!q.page && canSeePage(modules, q.page))
         .slice(0, 6)
     : [];
   const firstName = prettyName(fullName)?.split(" ")[0] ?? null;

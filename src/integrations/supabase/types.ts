@@ -10,32 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.12 (cd3cf9e)"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: "12.2.12"
   }
   public: {
     Tables: {
@@ -91,6 +66,44 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_damages: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          damage_type: string
+          description: string | null
+          id: string
+          location: string | null
+          photo_url: string | null
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          damage_type: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          photo_url?: string | null
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          damage_type?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          photo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_damages_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
             referencedColumns: ["id"]
           },
         ]
@@ -270,6 +283,47 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      licitacao_documentos: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          file_path: string
+          file_size: number | null
+          id: string
+          licitacao_id: string
+          nome: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          licitacao_id: string
+          nome: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          licitacao_id?: string
+          nome?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "licitacao_documentos_licitacao_id_fkey"
+            columns: ["licitacao_id"]
+            isOneToOne: false
+            referencedRelation: "licitacoes"
             referencedColumns: ["id"]
           },
         ]
@@ -536,6 +590,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           base_code: string
+          cancel_reason: string | null
           checklist_id: string | null
           combustivel_chegada: string | null
           created_at: string
@@ -563,9 +618,17 @@ export type Database = {
           observations: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["maintenance_type"]
+          part_arrival_due: string | null
+          part_arrived_at: string | null
+          part_decided_at: string | null
+          part_decided_by: string | null
+          part_purchase_due: string | null
+          part_requested_at: string | null
+          part_requested_by: string | null
           parts_cost: number | null
           parts_needed: string | null
           parts_supplier: string | null
+          previsao_saida: string | null
           response_id: string | null
           responsible_signature_url: string | null
           service_type: string | null
@@ -574,6 +637,7 @@ export type Database = {
           status: Database["public"]["Enums"]["maintenance_status"]
           updated_at: string
           validade_oleo: string | null
+          valor_total: number | null
           vehicle_id: string | null
           workshop: string | null
         }
@@ -581,6 +645,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           base_code: string
+          cancel_reason?: string | null
           checklist_id?: string | null
           combustivel_chegada?: string | null
           created_at?: string
@@ -608,9 +673,17 @@ export type Database = {
           observations?: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["maintenance_type"]
+          part_arrival_due?: string | null
+          part_arrived_at?: string | null
+          part_decided_at?: string | null
+          part_decided_by?: string | null
+          part_purchase_due?: string | null
+          part_requested_at?: string | null
+          part_requested_by?: string | null
           parts_cost?: number | null
           parts_needed?: string | null
           parts_supplier?: string | null
+          previsao_saida?: string | null
           response_id?: string | null
           responsible_signature_url?: string | null
           service_type?: string | null
@@ -619,6 +692,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["maintenance_status"]
           updated_at?: string
           validade_oleo?: string | null
+          valor_total?: number | null
           vehicle_id?: string | null
           workshop?: string | null
         }
@@ -626,6 +700,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           base_code?: string
+          cancel_reason?: string | null
           checklist_id?: string | null
           combustivel_chegada?: string | null
           created_at?: string
@@ -653,9 +728,17 @@ export type Database = {
           observations?: string | null
           order_number?: string
           order_type?: Database["public"]["Enums"]["maintenance_type"]
+          part_arrival_due?: string | null
+          part_arrived_at?: string | null
+          part_decided_at?: string | null
+          part_decided_by?: string | null
+          part_purchase_due?: string | null
+          part_requested_at?: string | null
+          part_requested_by?: string | null
           parts_cost?: number | null
           parts_needed?: string | null
           parts_supplier?: string | null
+          previsao_saida?: string | null
           response_id?: string | null
           responsible_signature_url?: string | null
           service_type?: string | null
@@ -664,6 +747,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["maintenance_status"]
           updated_at?: string
           validade_oleo?: string | null
+          valor_total?: number | null
           vehicle_id?: string | null
           workshop?: string | null
         }
@@ -1048,6 +1132,10 @@ export type Database = {
     Functions: {
       get_email_by_cpf: { Args: { cpf_input: string }; Returns: string }
       has_admin_or_master: { Args: { _user_id: string }; Returns: boolean }
+      has_module_access: {
+        Args: { _slugs: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_role:
         | {
             Args: {
@@ -1132,12 +1220,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1161,11 +1249,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1186,11 +1274,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1211,11 +1299,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1228,11 +1316,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1242,9 +1330,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["admin", "driver", "viewer", "mechanic", "master", "geral"],

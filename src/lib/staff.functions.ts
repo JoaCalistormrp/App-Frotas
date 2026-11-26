@@ -11,6 +11,7 @@ const KNOWN_MODULE_SLUGS = [
   "frotas.checklists",
   "frotas.checklist_new",
   "frotas.manutencao",
+  "frotas.os_mecanico",
   "frotas.veiculos",
   "frotas.motoristas",
   "frotas.lixeira",

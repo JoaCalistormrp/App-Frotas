@@ -79,7 +79,7 @@ async function loadDashboard(): Promise<DashData> {
     supabase.from("checklists").select("created_at, has_issues").gte("created_at", seriesStart.toISOString()).limit(5000),
     supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("active", true),
     supabase.from("vehicles").select("id, plate, mileage, oil_change_due_km").eq("active", true).not("oil_change_due_km", "is", null),
-    supabase.from("maintenance_orders").select("id, order_number, status, checklist_id").is("deleted_at", null).limit(2000),
+    supabase.from("maintenance_orders").select("id, order_number, status, checklist_id, order_type, part_decided_at").is("deleted_at", null).limit(2000),
     supabase.from("checklists").select("id").eq("has_issues", true).gte("created_at", failuresSince).limit(1000),
     supabase.from("profiles").select("id, full_name, cnh_expires_at").not("cnh_expires_at", "is", null),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("driver_active", true).is("cnh_expires_at", null),
@@ -99,7 +99,7 @@ async function loadDashboard(): Promise<DashData> {
     if (p) { p.total++; if (c.has_issues) p.failures++; }
   }
 
-  const orders = (ordersRes.data ?? []) as Array<LinkedOs & { checklist_id: string | null }>;
+  const orders = (ordersRes.data ?? []) as Array<LinkedOs & { checklist_id: string | null; order_type: string; part_decided_at: string | null }>;
   const osByChecklist: Record<string, LinkedOs> = {};
   for (const o of orders) if (o.checklist_id) osByChecklist[o.checklist_id] = { id: o.id, order_number: o.order_number, status: o.status };
 
@@ -120,7 +120,7 @@ async function loadDashboard(): Promise<DashData> {
     days: Array.from(byDay.values()),
     activeVehicles: vehiclesRes.count ?? 0,
     openOs: orders.filter((o) => OPEN_STATUSES.includes(o.status)).length,
-    awaiting: orders.filter((o) => o.status === "aguardando_aprovacao").length,
+    awaiting: orders.filter((o) => o.order_type === "SMI" && o.status === "aguardando_pecas" && !o.part_decided_at).length,
     osByChecklist,
     pendingFailures: ((failRes.data ?? []) as Array<{ id: string }>).filter((c) => !osByChecklist[c.id]).length,
     cnhExpired: people.filter((p) => daysUntil(p.cnh_expires_at) < 0).sort((a, b) => a.cnh_expires_at.localeCompare(b.cnh_expires_at)),
@@ -385,7 +385,7 @@ function DashboardSkeleton() {
 // ---------------- Página ----------------
 
 function AdminDashboard() {
-  const { isMaster, modules } = useAuth();
+  const { modules } = useAuth();
   const [data, setData] = useState<DashData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showTable, setShowTable] = useState(false);
@@ -452,10 +452,10 @@ function AdminDashboard() {
   }
   if (data.awaiting > 0) {
     attention.push({
-      key: "aprovacao", tone: "warning", icon: Clock,
-      title: `${plural(data.awaiting, "OS aguardando", "OS aguardando")} ${isMaster ? "sua aprovação" : "aprovação"}`,
-      text: isMaster ? "Revise o orçamento e aprove ou negue" : "Aguardando decisão de um usuário Master",
-      cta: canMaintain ? { label: "Revisar", to: "/admin/maintenance", search: { filtro: "aprovacao" } } : undefined,
+      key: "pecas", tone: "warning", icon: Clock,
+      title: `${plural(data.awaiting, "pedido de peça", "pedidos de peça")} aguardando resposta`,
+      text: "O mecânico aguarda a previsão de compra e chegada (OS internas)",
+      cta: canMaintain ? { label: "Responder", to: "/admin/maintenance", search: { filtro: "peca" } } : undefined,
     });
   }
   if (data.cnhExpired.length > 0) {
@@ -583,7 +583,7 @@ function AdminDashboard() {
         <StatTile
           label="OS em aberto"
           value={data.openOs}
-          hint={data.awaiting ? `${data.awaiting} aguardando aprovação` : "Nenhuma aguardando aprovação"}
+          hint={data.awaiting ? `${plural(data.awaiting, "pedido de peça", "pedidos de peça")} sem resposta` : "Nenhum pedido de peça pendente"}
           icon={Wrench}
           to={canMaintain ? "/admin/maintenance" : undefined}
         />

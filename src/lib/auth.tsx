@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 const BROAD_ACCESS_SLUGS = [
-  "frotas", "frotas.dashboard", "frotas.manutencao", "frotas.veiculos",
+  "frotas", "frotas.dashboard", "frotas.manutencao", "frotas.os_mecanico", "frotas.veiculos",
   "frotas.motoristas", "frotas.lixeira", "financeiro", "utilizadores", "licitacao",
 ];
 

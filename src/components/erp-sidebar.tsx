@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
-  FROTAS_GROUPS, OTHER_MODULES, canAccessPage, canSeeModule, findActiveFrotasPage, hasFrotasModule, initials, prettyName,
+  FROTAS_GROUPS, OTHER_MODULES, canAccessPage, canSeeModule, canSeePage, findActiveFrotasPage, hasFrotasModule, initials, isOsGestor, prettyName,
 } from "@/lib/nav";
 import logoTomaz from "@/assets/grupo-tomaz-logo.png";
 
@@ -40,7 +40,8 @@ function NavItem({ url, title, icon: Icon, active, badge, badgeLabel, onNavigate
   );
 }
 
-function useAwaitingApproval(enabled: boolean, path: string) {
+// Pedidos de peça do mecânico que o Frotas ADM ainda não respondeu
+function usePendingPartRequests(enabled: boolean, path: string) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!enabled) { setCount(0); return; }
@@ -48,7 +49,9 @@ function useAwaitingApproval(enabled: boolean, path: string) {
     supabase
       .from("maintenance_orders")
       .select("id", { count: "exact", head: true })
-      .eq("status", "aguardando_aprovacao")
+      .eq("order_type", "SMI")
+      .eq("status", "aguardando_pecas")
+      .is("part_decided_at", null)
       .is("deleted_at", null)
       .then(({ count: c }) => { if (alive) setCount(c ?? 0); });
     return () => { alive = false; };
@@ -66,18 +69,18 @@ export function ERPSidebar() {
   const activeUrl = findActiveFrotasPage(path)?.url ?? null;
 
   const fieldMode = isFieldDriver || isMechanic;
-  const canMaintain = canAccessPage(modules, "frotas.manutencao");
-  const awaiting = useAwaitingApproval(isMaster && canMaintain && !fieldMode, path);
+  const awaiting = usePendingPartRequests(isOsGestor(modules, isAdmin) && !fieldMode, path);
 
   const groups = hasFrotasModule(modules)
-    ? FROTAS_GROUPS.map((g) => ({ ...g, pages: g.pages.filter((p) => canAccessPage(modules, p.slug)) })).filter((g) => g.pages.length)
+    ? FROTAS_GROUPS.map((g) => ({ ...g, pages: g.pages.filter((p) => canSeePage(modules, p)) })).filter((g) => g.pages.length)
     : [];
   const pageCount = groups.reduce((n, g) => n + g.pages.length, 0);
   const showGroupLabels = pageCount > 4;
   const others = OTHER_MODULES.filter((m) => canSeeModule(m, modules, isAdmin));
 
   const name = prettyName(fullName) ?? user?.email ?? "Usuário";
-  const roleLabel = isMaster ? "Master" : isAdmin ? "Administrador" : isViewer ? "Consulta" : isMechanic ? "Mecânico" : fieldMode ? "Motorista" : "Geral";
+  const mechanicByModule = canAccessPage(modules, "frotas.os_mecanico") && !isOsGestor(modules, isAdmin);
+  const roleLabel = isMaster ? "Master" : isAdmin ? "Administrador" : isViewer ? "Consulta" : isMechanic || mechanicByModule ? "Mecânico" : fieldMode ? "Motorista" : "Geral";
 
   return (
     <Sidebar collapsible="icon">
@@ -140,7 +143,7 @@ export function ERPSidebar() {
                             icon={p.icon}
                             active={activeUrl === p.url}
                             badge={p.url === "/admin/maintenance" ? awaiting : undefined}
-                            badgeLabel="aguardando aprovação"
+                            badgeLabel="pedido(s) de peça aguardando resposta"
                             onNavigate={closeMobile}
                           />
                         ))}

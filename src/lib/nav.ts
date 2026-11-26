@@ -1,9 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  CalendarDays, Car, FilePlus, Gavel, History, LayoutDashboard, ShieldCheck, Trash2, TrendingDown, Users, Wrench,
+  Building2, CalendarDays, Car, FilePlus, Gavel, History, LayoutDashboard, ShieldCheck, Trash2, TrendingDown, Users, Wrench,
 } from "lucide-react";
 
-export type NavPage = { title: string; url: string; icon: LucideIcon; slug: string; exact?: boolean };
+// alt: outras permissões que também abrem a página (ex.: OS internas para o mecânico)
+export type NavPage = { title: string; url: string; icon: LucideIcon; slug: string; alt?: string[]; exact?: boolean };
 export type NavGroup = { label: string | null; pages: NavPage[] };
 export type NavModule = { title: string; url: string; icon: LucideIcon; slug: string; adminBypass?: boolean };
 
@@ -20,7 +21,8 @@ export const FROTAS_GROUPS: NavGroup[] = [
   {
     label: "Manutenção",
     pages: [
-      { title: "Ordens de serviço", url: "/admin/maintenance", icon: Wrench, slug: "frotas.manutencao" },
+      { title: "OS internas", url: "/admin/maintenance", icon: Wrench, slug: "frotas.manutencao", alt: ["frotas.os_mecanico"] },
+      { title: "OS externas", url: "/admin/maintenance/externas", icon: Building2, slug: "frotas.manutencao" },
       { title: "Lixeira de OS", url: "/admin/maintenance/trash", icon: Trash2, slug: "frotas.lixeira" },
     ],
   },
@@ -49,6 +51,12 @@ export const hasFrotasModule = (modules: string[]) => modules.some((m) => m === 
 export const canAccessPage = (modules: string[], slug: string) =>
   modules.includes("frotas") || modules.includes(slug) || modules.includes(`${slug}.readonly`);
 
+export const canSeePage = (modules: string[], page: NavPage) =>
+  [page.slug, ...(page.alt ?? [])].some((s) => canAccessPage(modules, s));
+
+// Frotas ADM: gere todas as OS e responde pedidos de peça. O mecânico só trabalha nas OS internas.
+export const isOsGestor = (modules: string[], isAdmin: boolean) => isAdmin || canAccessPage(modules, "frotas.manutencao");
+
 export const canSeeModule = (mod: NavModule, modules: string[], isAdmin: boolean) =>
   (mod.adminBypass && isAdmin) || modules.includes(mod.slug);
 
@@ -71,11 +79,11 @@ export function breadcrumbFor(path: string): string[] {
   if (other) return [other.title];
   const page = findActiveFrotasPage(path);
   if (page) {
-    const crumbs = ["Frotas", page.title];
+    // Ficha da OS (interna ou externa) fica sob "Manutenção"
     if (page.url === "/admin/maintenance" && path.replace(/\/$/, "") !== page.url) {
-      crumbs.push(path.endsWith("/new") ? "Nova OS" : "Detalhe da OS");
+      return ["Frotas", "Manutenção", path.endsWith("/new") ? "Nova OS" : "Detalhe da OS"];
     }
-    return crumbs;
+    return ["Frotas", page.title];
   }
   return path.startsWith("/admin") ? ["Frotas"] : [];
 }

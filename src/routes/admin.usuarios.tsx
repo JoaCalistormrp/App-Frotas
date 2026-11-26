@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Separator   } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -57,7 +57,8 @@ const MODULES_CONFIG: Array<{
           { slug: "frotas.checklists.administrativo", label: "Administrativo" },
         ],
       },
-      { slug: "frotas.manutencao",    label: "Manutenção" },
+      { slug: "frotas.manutencao",    label: "Manutenção — Gestão (Frotas ADM)" },
+      { slug: "frotas.os_mecanico",   label: "OS interna — Mecânico" },
       { slug: "frotas.veiculos",      label: "Veículos" },
       { slug: "frotas.motoristas",    label: "Motoristas" },
       { slug: "frotas.lixeira",       label: "Lixeira" },
@@ -310,6 +311,7 @@ function ModulesSection({
                                     checked={subChecked}
                                     onChange={() => toggleScreen(sub.slug)}
                                     className="h-3 w-3 rounded accent-primary"
+                                    
                                   />
                                   <span className={`text-[11px] ${subChecked ? "text-foreground" : "text-muted-foreground"}`}>
                                     {sub.label}
