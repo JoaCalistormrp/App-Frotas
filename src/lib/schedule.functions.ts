@@ -118,7 +118,9 @@ export const listSchedules = createServerFn({ method: "POST" })
         assigned_user_id, created_by, created_at,
         vehicles(plate, model)
       `)
-      .or(`start_date.lte.${endDate},end_date.gte.${startDate}`)
+      // Agendamentos que tocam o mês: começam até o fim do mês E terminam a partir do início dele
+      .lte("start_date", endDate)
+      .gte("end_date", startDate)
       .order("start_date", { ascending: true })
       .limit(500);
 

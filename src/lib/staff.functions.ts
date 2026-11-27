@@ -288,7 +288,14 @@ export const deleteStaffUser = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     if (data.user_id === context.userId) throw new Error("Você não pode remover o seu próprio acesso.");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[deleteStaffUser]", data.user_id, error.message);
+      throw new Error(
+        /database error/i.test(error.message)
+          ? "Não foi possível excluir: há registros no sistema vinculados a este usuário. Avise o suporte."
+          : error.message,
+      );
+    }
     return { ok: true };
   });
 

@@ -120,6 +120,7 @@ function AgendamentoPage() {
       const rows = await listFn({
         data: { year: currentMonth.getFullYear(), month: currentMonth.getMonth() + 1 },
       });
+      if (!Array.isArray(rows)) throw new Error("Não foi possível carregar os agendamentos. Tente novamente.");
       setSchedules(rows as Schedule[]);
     } catch (e: unknown) {
       toast.error((e as Error).message ?? "Erro ao carregar agendamentos.");

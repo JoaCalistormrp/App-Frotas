@@ -6,6 +6,8 @@ import type { Database } from './types'
 
 
 
+// Erros precisam ser lançados como Error: um Response lançado aqui chega ao navegador
+// como se fosse o resultado da função, e a tela quebra tentando usá-lo.
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     
@@ -19,28 +21,28 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       ];
       const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Configure as variáveis de ambiente no painel do projeto.`;
       console.error(`[Supabase] ${message}`);
-      throw new Response(message, { status: 500 });
+      throw new Error(message);
     }
     
     const request = getRequest();
 
     if (!request?.headers) {
-      throw new Response('Unauthorized: No request headers available', { status: 401 });
+      throw new Error('Sua sessão expirou. Saia e entre novamente no sistema.');
     }
 
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader) {
-      throw new Response('Unauthorized: No authorization header provided', { status: 401 });
+      throw new Error('Sua sessão expirou. Saia e entre novamente no sistema.');
     }
 
     if (!authHeader.startsWith('Bearer ')) {
-      throw new Response('Unauthorized: Only Bearer tokens are supported', { status: 401 });
+      throw new Error('Sua sessão expirou. Saia e entre novamente no sistema.');
     }
 
     const token = authHeader.replace('Bearer ', '');
     if (!token) {
-      throw new Response('Unauthorized: No token provided', { status: 401 });
+      throw new Error('Sua sessão expirou. Saia e entre novamente no sistema.');
     }
 
     const supabase = createClient<Database>(
@@ -62,11 +64,11 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
 
     const { data, error } = await supabase.auth.getClaims(token);
     if (error || !data?.claims) {
-      throw new Response('Unauthorized: Invalid token', { status: 401 });
+      throw new Error('Sua sessão expirou. Saia e entre novamente no sistema.');
     }
 
     if (!data.claims.sub) {
-      throw new Response('Unauthorized: No user ID found in token', { status: 401 });
+      throw new Error('Sua sessão expirou. Saia e entre novamente no sistema.');
     }
 
     return next({
